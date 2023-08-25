@@ -9,7 +9,7 @@ type FieldElement struct {
 	prime int
 }
 
-func NewFieldElement(num, prime int) (*FieldElement, error) {
+func New(num, prime int) (*FieldElement, error) {
 	if num >= prime || num < 0 {
 		return nil, fmt.Errorf("num %d not in field range 0 to %d", num, prime-1)
 	}
@@ -31,7 +31,7 @@ func (f FieldElement) Add(other FieldElement) (*FieldElement, error) {
 	}
 
 	num := (f.num + other.num) % f.prime
-	return NewFieldElement(num, f.prime)
+	return New(num, f.prime)
 }
 
 func (f FieldElement) Sub(other FieldElement) (*FieldElement, error) {
@@ -40,7 +40,10 @@ func (f FieldElement) Sub(other FieldElement) (*FieldElement, error) {
 	}
 
 	num := (f.num - other.num) % f.prime
-	return NewFieldElement(num, f.prime)
+	if num < 0 {
+		num += f.prime
+	}
+	return New(num, f.prime)
 }
 
 func (f FieldElement) Mul(other FieldElement) (*FieldElement, error) {
@@ -49,16 +52,16 @@ func (f FieldElement) Mul(other FieldElement) (*FieldElement, error) {
 	}
 
 	num := (f.num * other.num) % f.prime
-	return NewFieldElement(num, f.prime)
+	return New(num, f.prime)
 }
 
 func (f FieldElement) Pow(exp int) (*FieldElement, error) {
-	exp = exp%(f.prime-1) + (f.prime - 1)
-
-	fmt.Println(exp)
+	if exp < 0 {
+		exp = exp%(f.prime-1) + (f.prime - 1)
+	}
 
 	num := pow(f.num, exp, f.prime) % f.prime
-	return NewFieldElement(num, f.prime)
+	return New(num, f.prime)
 }
 
 func (f FieldElement) Div(other FieldElement) (*FieldElement, error) {
@@ -67,7 +70,7 @@ func (f FieldElement) Div(other FieldElement) (*FieldElement, error) {
 	}
 
 	num := (f.num * pow(other.num, f.prime-2, f.prime)) % f.prime
-	return NewFieldElement(num, f.prime)
+	return New(num, f.prime)
 }
 
 func pow(num, exp, mod int) int {
@@ -89,8 +92,8 @@ func pow(num, exp, mod int) int {
 }
 
 func main() {
-	a, _ := NewFieldElement(7, 13)
-	b, _ := NewFieldElement(6, 13)
+	a, _ := New(7, 13)
+	b, _ := New(6, 13)
 
 	fmt.Println(a.Equals(*b))
 	fmt.Println(a.Equals(*a))
