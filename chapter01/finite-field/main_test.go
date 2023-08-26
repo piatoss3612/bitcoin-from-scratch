@@ -200,6 +200,7 @@ func Test_FieldElement_Pow(t *testing.T) {
 		{num: 3, prime: 31, exp: -17, expected: 24, hasError: false, msg: ""},
 		{num: 3, prime: 31, exp: 0, expected: 1, hasError: false, msg: ""},
 		{num: 3, prime: 31, exp: 30, expected: 1, hasError: false, msg: ""},
+		{num: 3, prime: 31, exp: 60, expected: 1, hasError: false, msg: ""},
 	}
 
 	for _, tc := range tcs {

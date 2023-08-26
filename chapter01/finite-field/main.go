@@ -65,9 +65,10 @@ func (f FieldElement) Mul(other FieldElement) (*FieldElement, error) {
 
 // 유한체의 원소를 거듭제곱하는 함수 (거듭제곱한 결과는 같은 유한체에 속함)
 func (f FieldElement) Pow(exp int) (*FieldElement, error) {
+	exp %= (f.prime - 1)
 	// 지수가 음수일 경우 양수로 변환
 	if exp < 0 {
-		exp = exp%(f.prime-1) + (f.prime - 1)
+		exp += (f.prime - 1)
 	}
 
 	num := pow(f.num, exp, f.prime) % f.prime
