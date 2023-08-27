@@ -13,12 +13,12 @@ type Point struct {
 // 타원곡선의 점을 생성하는 함수
 func New(x, y, a, b float64) (*Point, error) {
 	// 무한원점인지 확인
-	if x == math.MaxFloat64 && y == math.MaxFloat64 {
+	if isInfinity(x, y) {
 		return &Point{x: x, y: y, a: a, b: b}, nil
 	}
 
 	// 주어진 점이 타원곡선 위에 있는지 확인
-	if y*y != x*x*x+a*x+b {
+	if !isOnCurve(x, y, a, b) {
 		return nil, fmt.Errorf("(%.2f, %.2f) is not on the curve", x, y)
 	}
 
@@ -28,7 +28,7 @@ func New(x, y, a, b float64) (*Point, error) {
 // 타원곡선의 점을 문자열로 표현하는 함수 (Stringer 인터페이스 구현)
 func (p Point) String() string {
 	// 무한원점인지 확인
-	if p.x == math.MaxFloat64 && p.y == math.MaxFloat64 {
+	if isInfinity(p.x, p.y) {
 		return "Point(infinity)"
 	}
 	return fmt.Sprintf("Point(%.2f, %.2f)_%.2f_%.2f", p.x, p.y, p.a, p.b)
@@ -37,45 +37,45 @@ func (p Point) String() string {
 // 두 타원곡선의 점이 같은지 확인하는 함수
 func (p Point) Equals(other Point) bool {
 	// 두 점의 좌표가 같고 같은 타원곡선 위에 있는지 확인
-	return p.x == other.x && p.y == other.y &&
-		p.a == other.a && p.b == other.b
+	return samePoint(p.x, p.y, other.x, other.y) &&
+		sameCurve(p.a, p.b, other.a, other.b)
 }
 
 // 두 타원곡선의 점이 다른지 확인하는 함수
 func (p Point) NotEquals(other Point) bool {
-	return !(p.x == other.x && p.y == other.y &&
-		p.a == other.a && p.b == other.b)
+	return !(samePoint(p.x, p.y, other.x, other.y) &&
+		sameCurve(p.a, p.b, other.a, other.b))
 }
 
 // 두 타원곡선의 점을 더하는 함수
 func (p Point) Add(other Point) (*Point, error) {
 	// 같은 타원곡선 위에 있는지 확인
-	if p.a != other.a || p.b != other.b {
+	if !sameCurve(p.a, p.b, other.a, other.b) {
 		return nil, fmt.Errorf("points %s and %s are not on the same curve", p, other)
 	}
 
 	/* case1: 두 점이 x축에 수직인 직선 위에 있는 경우 */
 
 	// p가 무한원점인지 확인
-	if p.x == math.MaxFloat64 && p.y == math.MaxFloat64 {
+	if isInfinity(p.x, p.y) {
 		return &other, nil
 	}
 
 	// other가 무한원점인지 확인
-	if other.x == math.MaxFloat64 && other.y == math.MaxFloat64 {
+	if isInfinity(other.x, other.y) {
 		return &p, nil
 	}
 
 	// 한 점에 그의 역원을 더하는 경우, 무한원점을 반환
-	if p.x == other.x && p.y != other.y {
+	if areInverse(p.x, other.x, p.y, other.y) {
 		return New(math.MaxFloat64, math.MaxFloat64, p.a, p.b)
 	}
 
 	/* case2: 두 점이 같은 경우 */
 
 	// p와 other가 같은 점인지 확인
-	if p.x == other.x && p.y == other.y {
-		// 예외 처리: 접선이 x축에 수직인 경우 무한원점을 반환
+	if samePoint(p.x, p.y, other.x, other.y) {
+		// case 2-1 예외 처리: 접선이 x축에 수직인 경우, 무한원점을 반환
 		if p.y == 0 {
 			return New(math.MaxFloat64, math.MaxFloat64, p.a, p.b)
 		}
@@ -105,6 +105,31 @@ func (p Point) Add(other Point) (*Point, error) {
 	ny = -ny
 
 	return New(nx, ny, p.a, p.b)
+}
+
+// 무한원점인지 확인하는 함수
+func isInfinity(x, y float64) bool {
+	return x == math.MaxFloat64 && y == math.MaxFloat64
+}
+
+// 타원곡선 위에 있는지 확인하는 함수
+func isOnCurve(x, y, a, b float64) bool {
+	return y*y == x*x*x+a*x+b
+}
+
+// 두 점이 서로 역원인지 확인하는 함수
+func areInverse(x1, x2, y1, y2 float64) bool {
+	return x1 == x2 && y1 != y2
+}
+
+// 두 타원곡선이 같은지 확인하는 함수
+func sameCurve(a1, b1, a2, b2 float64) bool {
+	return a1 == a2 && b1 == b2
+}
+
+// 두 점이 같은지 확인하는 함수
+func samePoint(x1, y1, x2, y2 float64) bool {
+	return x1 == x2 && y1 == y2
 }
 
 func main() {
@@ -159,11 +184,4 @@ func main() {
 	}
 
 	fmt.Println(p6)
-
-	p7, err := New(10, 77, 5, 7)
-	if err != nil {
-		panic(err)
-	}
-
-	fmt.Println(p7)
 }
