@@ -133,55 +133,27 @@ func samePoint(x1, y1, x2, y2 float64) bool {
 }
 
 func main() {
-	p1, err := New(-1, -1, 5, 7)
-	if err != nil {
-		panic(err)
-	}
-
+	p1, _ := New(-1, -1, 5, 7)
 	fmt.Println(p1)
 
-	p2, err := New(2, 5, 5, 7)
-	if err != nil {
-		panic(err)
-	}
-
+	p2, _ := New(2, 5, 5, 7)
 	fmt.Println(p2)
 
 	fmt.Println(p1.Equals(*p2))
 	fmt.Println(p1.NotEquals(*p2))
 
-	p3, err := New(1, 4, 8, 7)
-	if err != nil {
-		panic(err)
-	}
-
+	p3, _ := New(1, 4, 8, 7)
 	fmt.Println(p3)
 
-	p4, err := New(-1, 1, 5, 7)
-	if err != nil {
-		panic(err)
-	}
-
+	p4, _ := New(-1, 1, 5, 7)
 	fmt.Println(p4)
 
-	inf, err := p1.Add(*p4)
-	if err != nil {
-		panic(err)
-	}
-
+	inf, _ := p1.Add(*p4)
 	fmt.Println(inf)
 
-	p5, err := p1.Add(*p2)
-	if err != nil {
-		panic(err)
-	}
-
+	p5, _ := p1.Add(*p2)
 	fmt.Println(p5)
 
-	p6, err := p1.Add(*p1)
-	if err != nil {
-		panic(err)
-	}
-
+	p6, _ := p1.Add(*p1)
 	fmt.Println(p6)
 }
