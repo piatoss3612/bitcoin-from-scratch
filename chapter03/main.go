@@ -7,81 +7,59 @@ import (
 )
 
 func main() {
-	prime := big.NewInt(223)
-	a, _ := ecc.NewFieldElement(big.NewInt(0), prime)
-	b, _ := ecc.NewFieldElement(big.NewInt(7), prime)
-	x1, _ := ecc.NewFieldElement(big.NewInt(192), prime)
-	y1, _ := ecc.NewFieldElement(big.NewInt(105), prime)
-	x2, _ := ecc.NewFieldElement(big.NewInt(17), prime)
-	y2, _ := ecc.NewFieldElement(big.NewInt(56), prime)
+	gx := "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"
+	gy := "483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8"
+	n := "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141"
+	p := big.NewInt(0).Exp(big.NewInt(2), big.NewInt(256), nil)
+	p.Sub(p, big.NewInt(0).Exp(big.NewInt(2), big.NewInt(32), nil))
+	p.Sub(p, big.NewInt(977))
 
-	p1, _ := ecc.New(x1, y1, a, b)
-	p2, _ := ecc.New(x2, y2, a, b)
-	fmt.Println(p1, p2)
+	bigX, _ := new(big.Int).SetString(gx, 16)
+	bigY, _ := new(big.Int).SetString(gy, 16)
+	bigN, _ := new(big.Int).SetString(n, 16)
 
-	res1, err := p1.Add(*p2)
-	if err != nil {
-		fmt.Println(err)
+	// y^2 mod p = x^3 + 7 mod p
+	left := big.NewInt(0).Exp(bigY, big.NewInt(2), nil)
+	left.Mod(left, p)
+	right := big.NewInt(0).Exp(bigX, big.NewInt(3), nil)
+	right.Add(right, big.NewInt(7))
+	right.Mod(right, p)
+
+	if left.Cmp(right) == 0 {
+		println("y^2 mod p = x^3 + 7 mod p")
+	} else {
+		println("y^2 mod p != x^3 + 7 mod p")
 	}
-	fmt.Println(res1)
 
-	x3, _ := ecc.NewFieldElement(big.NewInt(170), prime)
-	y3, _ := ecc.NewFieldElement(big.NewInt(142), prime)
-	p3, _ := ecc.New(x3, y3, a, b)
-
-	x4, _ := ecc.NewFieldElement(big.NewInt(60), prime)
-	y4, _ := ecc.NewFieldElement(big.NewInt(139), prime)
-	p4, _ := ecc.New(x4, y4, a, b)
-
-	res2, err := p3.Add(*p4)
+	x1, err := ecc.NewFieldElement(bigX, p)
 	if err != nil {
-		fmt.Println(err)
+		panic(err)
 	}
-	fmt.Println(res2)
 
-	x5, _ := ecc.NewFieldElement(big.NewInt(47), prime)
-	y5, _ := ecc.NewFieldElement(big.NewInt(71), prime)
-	p5, _ := ecc.New(x5, y5, a, b)
-
-	x6, _ := ecc.NewFieldElement(big.NewInt(17), prime)
-	y6, _ := ecc.NewFieldElement(big.NewInt(56), prime)
-	p6, _ := ecc.New(x6, y6, a, b)
-
-	res3, err := p5.Add(*p6)
+	y1, err := ecc.NewFieldElement(bigY, p)
 	if err != nil {
-		fmt.Println(err)
+		panic(err)
 	}
-	fmt.Println(res3)
 
-	x7, _ := ecc.NewFieldElement(big.NewInt(143), prime)
-	y7, _ := ecc.NewFieldElement(big.NewInt(98), prime)
-	p7, _ := ecc.New(x7, y7, a, b)
-
-	x8, _ := ecc.NewFieldElement(big.NewInt(76), prime)
-	y8, _ := ecc.NewFieldElement(big.NewInt(66), prime)
-	p8, _ := ecc.New(x8, y8, a, b)
-
-	res4, err := p7.Add(*p8)
+	zero, err := ecc.NewFieldElement(big.NewInt(0), p)
 	if err != nil {
-		fmt.Println(err)
+		panic(err)
 	}
-	fmt.Println(res4)
 
-	s1, err := p7.Add(*p7)
+	seven, err := ecc.NewFieldElement(big.NewInt(7), p)
 	if err != nil {
-		fmt.Println(err)
+		panic(err)
 	}
-	fmt.Println(s1)
 
-	s2, err := p1.Add(*p1)
+	G, err := ecc.New(x1, y1, zero, seven)
 	if err != nil {
-		fmt.Println(err)
+		panic(err)
 	}
-	fmt.Println(s2)
 
-	s3, err := p5.Mul(21)
+	nG, err := G.Mul(bigN)
 	if err != nil {
-		fmt.Println(err)
+		panic(err)
 	}
-	fmt.Println(s3)
+
+	fmt.Println(nG)
 }

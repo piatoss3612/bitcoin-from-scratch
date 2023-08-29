@@ -210,19 +210,7 @@ func (p Point) Add(other Point) (*Point, error) {
 	return nil, fmt.Errorf("unhandled case, (%s, %s) + (%s, %s)", p.x, p.y, other.x, other.y)
 }
 
-func (p Point) Mul(coefficient int) (*Point, error) {
-	/*
-		product := &Point{x: nil, y: nil, a: p.a, b: p.b}
-		for i := 0; i < coefficient; i++ {
-			res, err := product.Add(p)
-			if err != nil {
-				return nil, err
-			}
-			product = res
-		}
-		return product, nil
-	*/
-
+func (p Point) Mul(coefficient *big.Int) (*Point, error) {
 	coef := coefficient // 계수
 	current := &p       // 시작점으로 초기화
 
@@ -232,9 +220,9 @@ func (p Point) Mul(coefficient int) (*Point, error) {
 	}
 
 	// 이진수 전개법을 이용하여 타원곡선의 점 곱셈
-	for coef > 0 {
+	for coef.Cmp(big.NewInt(0)) == 1 {
 		// 가장 오른쪽 비트가 1인지 확인
-		if coef&1 == 1 {
+		if coef.Bit(0) == 1 {
 			result, err = result.Add(*current) // 현재 점을 결과에 더하기
 			if err != nil {
 				return nil, err
@@ -245,7 +233,7 @@ func (p Point) Mul(coefficient int) (*Point, error) {
 			return nil, err
 		}
 
-		coef >>= 1 // 비트를 오른쪽으로 한 칸씩 이동
+		coef.Rsh(coef, 1) // 비트를 오른쪽으로 한 칸씩 이동
 	}
 
 	return result, nil
