@@ -25,17 +25,7 @@ func main() {
 		panic(err)
 	}
 
-	zero, err := ecc.NewS256Field(big.NewInt(0))
-	if err != nil {
-		panic(err)
-	}
-
-	seven, err := ecc.NewS256Field(big.NewInt(7))
-	if err != nil {
-		panic(err)
-	}
-
-	G, err := ecc.New(x1, y1, zero, seven)
+	G, err := ecc.NewS256Point(x1, y1)
 	if err != nil {
 		panic(err)
 	}

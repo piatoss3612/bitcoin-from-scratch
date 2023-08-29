@@ -22,7 +22,7 @@ type point struct {
 }
 
 // 타원곡선의 점을 생성하는 함수
-func New(x, y, a, b FieldElement) (Point, error) {
+func NewPoint(x, y, a, b FieldElement) (Point, error) {
 	// 무한원점인지 확인
 	if isInfinity(x, y) {
 		return &point{x: x, y: y, a: a, b: b}, nil
@@ -96,7 +96,7 @@ func (p point) Add(other Point) (Point, error) {
 
 	// 한 점에 그의 역원을 더하는 경우, 무한원점을 반환
 	if areInverse(p.x, other.X(), p.y, other.Y()) {
-		return New(nil, nil, p.a, p.b)
+		return NewPoint(nil, nil, p.a, p.b)
 	}
 
 	/* case2: 두 점이 서로 다른 경우 */
@@ -149,7 +149,7 @@ func (p point) Add(other Point) (Point, error) {
 			return nil, err
 		}
 
-		return New(nx, ny, p.a, p.b)
+		return NewPoint(nx, ny, p.a, p.b)
 	}
 
 	/* case3: 두 점이 같은 경우 */
@@ -158,7 +158,7 @@ func (p point) Add(other Point) (Point, error) {
 	if samePoint(p.x, p.y, other.X(), other.Y()) {
 		// case 2-1 예외 처리: 접선이 x축에 수직인 경우, 무한원점을 반환
 		if p.y.Num().Cmp(big.NewInt(0)) == 0 {
-			return New(nil, nil, p.a, p.b)
+			return NewPoint(nil, nil, p.a, p.b)
 		}
 		// 접선의 기울기 구하기
 		p1, err := NewFieldElement(big.NewInt(3), p.x.Prime())
@@ -232,7 +232,7 @@ func (p point) Add(other Point) (Point, error) {
 			return nil, err
 		}
 
-		return New(nx, ny, p.a, p.b)
+		return NewPoint(nx, ny, p.a, p.b)
 	}
 
 	return nil, fmt.Errorf("unhandled case, (%s, %s) + (%s, %s)", p.x, p.y, other.X(), other.Y())
@@ -242,7 +242,7 @@ func (p point) Mul(coefficient *big.Int) (Point, error) {
 	coef := coefficient  // 계수
 	current := Point(&p) // 시작점으로 초기화
 
-	result, err := New(nil, nil, p.a, p.b)
+	result, err := NewPoint(nil, nil, p.a, p.b)
 	if err != nil {
 		return nil, err
 	}
@@ -315,4 +315,47 @@ func sameCurve(a1, b1, a2, b2 FieldElement) bool {
 // 두 점이 같은지 확인하는 함수
 func samePoint(x1, y1, x2, y2 FieldElement) bool {
 	return x1.Equal(x2) && y1.Equal(y2)
+}
+
+var (
+	A = 0
+	B = 7
+	N = "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141"
+)
+
+type s256Point struct {
+	point
+}
+
+func NewS256Point(x, y FieldElement) (Point, error) {
+	a, err := NewS256Field(big.NewInt(int64(A)))
+	if err != nil {
+		return nil, err
+	}
+
+	b, err := NewS256Field(big.NewInt(int64(B)))
+	if err != nil {
+		return nil, err
+	}
+
+	if isInfinity(x, y) {
+		return &s256Point{point{x: x, y: y, a: a, b: b}}, nil
+	}
+
+	if !isOnCurve(x, y, a, b) {
+		return nil, fmt.Errorf("(%s, %s) is not on the curve", x, y)
+	}
+
+	return &s256Point{point{x: x, y: y, a: a, b: b}}, nil
+}
+
+func (p s256Point) Mul(coefficient *big.Int) (Point, error) {
+	n, ok := new(big.Int).SetString(N, 16)
+	if !ok {
+		return nil, fmt.Errorf("failed to convert N to big.Int")
+	}
+
+	coef := new(big.Int).Mod(coefficient, n)
+
+	return p.point.Mul(coef)
 }
