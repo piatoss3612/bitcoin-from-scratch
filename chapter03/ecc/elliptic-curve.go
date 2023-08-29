@@ -2,6 +2,7 @@ package ecc
 
 import (
 	"fmt"
+	"math/big"
 )
 
 type Point struct {
@@ -47,6 +48,7 @@ func (p Point) NotEqual(other Point) bool {
 
 // 두 타원곡선의 점을 더하는 함수
 func (p Point) Add(other Point) (*Point, error) {
+
 	// 같은 타원곡선 위에 있는지 확인
 	if !sameCurve(p.a, p.b, other.a, other.b) {
 		return nil, fmt.Errorf("points %s and %s are not on the same curve", p, other)
@@ -89,7 +91,7 @@ func (p Point) Add(other Point) (*Point, error) {
 		}
 
 		// p와 other를 지나는 직선이 타원곡선과 만나는 다른 한 점 q의 좌표 구하기
-		x1, err := s.Pow(2)
+		x1, err := s.Pow(big.NewInt(2))
 		if err != nil {
 			return nil, err
 		}
@@ -127,16 +129,16 @@ func (p Point) Add(other Point) (*Point, error) {
 	// p와 other가 같은 점인지 확인
 	if samePoint(p.x, p.y, other.x, other.y) {
 		// case 2-1 예외 처리: 접선이 x축에 수직인 경우, 무한원점을 반환
-		if p.y.num == 0 {
+		if p.y.num.Cmp(big.NewInt(0)) == 0 {
 			return New(nil, nil, p.a, p.b)
 		}
 		// 접선의 기울기 구하기
-		p1, err := NewFieldElement(3, p.x.prime)
+		p1, err := NewFieldElement(big.NewInt(3), p.x.prime)
 		if err != nil {
 			return nil, err
 		}
 
-		p2, err := p.x.Pow(2)
+		p2, err := p.x.Pow(big.NewInt(2))
 		if err != nil {
 			return nil, err
 		}
@@ -151,7 +153,7 @@ func (p Point) Add(other Point) (*Point, error) {
 			return nil, err
 		}
 
-		c1, err := NewFieldElement(2, p.x.prime)
+		c1, err := NewFieldElement(big.NewInt(2), p.x.prime)
 		if err != nil {
 			return nil, err
 		}
@@ -167,12 +169,12 @@ func (p Point) Add(other Point) (*Point, error) {
 		}
 
 		// 접선과 타원곡선의 교점 q의 좌표 구하기
-		s2, err := s.Pow(2)
+		s2, err := s.Pow(big.NewInt(2))
 		if err != nil {
 			return nil, err
 		}
 
-		x1, err := NewFieldElement(2, p.x.prime)
+		x1, err := NewFieldElement(big.NewInt(2), p.x.prime)
 		if err != nil {
 			return nil, err
 		}
@@ -256,12 +258,12 @@ func isInfinity(x, y *FieldElement) bool {
 
 // 타원곡선 위에 있는지 확인하는 함수
 func isOnCurve(x, y, a, b *FieldElement) bool {
-	left, err := y.Pow(2)
+	left, err := y.Pow(big.NewInt(2))
 	if err != nil {
 		return false
 	}
 
-	r1, err := x.Pow(3)
+	r1, err := x.Pow(big.NewInt(3))
 	if err != nil {
 		return false
 	}
