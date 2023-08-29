@@ -8,7 +8,7 @@ import (
 var (
 	A = 0
 	B = 7
-	N = "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141"
+	N *big.Int
 	G Point
 )
 
@@ -32,6 +32,10 @@ func init() {
 	}
 
 	G = g
+
+	n, _ := new(big.Int).SetString("fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141", 16)
+
+	N = n
 }
 
 type Point interface {
@@ -329,23 +333,13 @@ func NewS256Point(x, y FieldElement) (Point, error) {
 }
 
 func (p s256Point) Mul(coefficient *big.Int) (Point, error) {
-	n, ok := new(big.Int).SetString(N, 16)
-	if !ok {
-		return nil, fmt.Errorf("failed to convert N to big.Int")
-	}
-
-	coef := new(big.Int).Mod(coefficient, n)
+	coef := new(big.Int).Mod(coefficient, N)
 
 	return p.point.Mul(coef)
 }
 
 func (p s256Point) Verify(z FieldElement, sig Signature) (bool, error) {
-	n, ok := new(big.Int).SetString(N, 16)
-	if !ok {
-		return false, fmt.Errorf("failed to convert N to big.Int")
-	}
-
-	sInv, err := sig.S().Pow(big.NewInt(0).Sub(n, big.NewInt(2)))
+	sInv, err := sig.S().Pow(big.NewInt(0).Sub(N, big.NewInt(2)))
 	if err != nil {
 		return false, err
 	}

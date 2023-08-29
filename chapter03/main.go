@@ -14,19 +14,17 @@ func main() {
 	bigPx, _ := new(big.Int).SetString("04519fac3d910ca7e7138f7013706f619fa8f033e6ec6e09370ea38cee6a7574", 16)
 	bigPy, _ := new(big.Int).SetString("82b51eab8c27c66e26c858a079bcdf4f1ada34cec420cafc7eac1a42216fb6c4", 16)
 
-	bigN, _ := new(big.Int).SetString(ecc.N, 16)
-
-	z, err := ecc.NewFieldElement(bigZ, bigN)
+	z, err := ecc.NewFieldElement(bigZ, ecc.N)
 	if err != nil {
 		panic(err)
 	}
 
-	r, err := ecc.NewFieldElement(bigR, bigN)
+	r, err := ecc.NewFieldElement(bigR, ecc.N)
 	if err != nil {
 		panic(err)
 	}
 
-	s, err := ecc.NewFieldElement(bigS, bigN)
+	s, err := ecc.NewFieldElement(bigS, ecc.N)
 	if err != nil {
 		panic(err)
 	}
