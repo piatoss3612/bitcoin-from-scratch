@@ -26,5 +26,5 @@ func (sig s256Signature) S() FieldElement {
 }
 
 func (sig s256Signature) String() string {
-	return fmt.Sprintf("Signature(%s, %s)", sig.r, sig.s)
+	return fmt.Sprintf("Signature(%s, %s)", sig.r.Num().Text(16), sig.s.Num().Text(16))
 }

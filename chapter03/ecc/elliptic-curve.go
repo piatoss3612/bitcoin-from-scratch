@@ -92,7 +92,8 @@ func (p point) String() string {
 	if isInfinity(p.x, p.y) {
 		return "Point(infinity)"
 	}
-	return fmt.Sprintf("Point(%s, %s)_%s_%s FieldElement(%s)", p.x.Num(), p.y.Num(), p.a.Num(), p.b.Num(), p.x.Prime())
+	return fmt.Sprintf("Point(%s, %s)_%s_%s FieldElement(%s)",
+		p.x.Num().Text(16), p.y.Num().Text(16), p.a.Num().Text(16), p.b.Num().Text(16), p.x.Prime().Text(16))
 }
 
 // 두 타원곡선의 점이 같은지 확인하는 함수
