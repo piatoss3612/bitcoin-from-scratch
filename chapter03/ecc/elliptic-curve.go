@@ -6,11 +6,11 @@ import (
 )
 
 type Point struct {
-	x, y, a, b *FieldElement
+	x, y, a, b FieldElement
 }
 
 // 타원곡선의 점을 생성하는 함수
-func New(x, y, a, b *FieldElement) (*Point, error) {
+func New(x, y, a, b FieldElement) (*Point, error) {
 	// 무한원점인지 확인
 	if isInfinity(x, y) {
 		return &Point{x: x, y: y, a: a, b: b}, nil
@@ -30,7 +30,7 @@ func (p Point) String() string {
 	if isInfinity(p.x, p.y) {
 		return "Point(infinity)"
 	}
-	return fmt.Sprintf("Point(%d, %d)_%d_%d FieldElement(%d)", p.x.num, p.y.num, p.a.num, p.b.num, p.x.prime)
+	return fmt.Sprintf("Point(%s, %s)_%s_%s FieldElement(%s)", p.x.Num(), p.y.Num(), p.a.Num(), p.b.Num(), p.x.Prime())
 }
 
 // 두 타원곡선의 점이 같은지 확인하는 함수
@@ -73,19 +73,19 @@ func (p Point) Add(other Point) (*Point, error) {
 
 	/* case2: 두 점이 서로 다른 경우 */
 
-	if p.x.NotEqual(*other.x) {
+	if p.x.NotEqual(other.x) {
 		// p와 other를 지나는 직선의 기울기 구하기
-		s1, err := other.y.Sub(*p.y)
+		s1, err := other.y.Sub(p.y)
 		if err != nil {
 			return nil, err
 		}
 
-		s2, err := other.x.Sub(*p.x)
+		s2, err := other.x.Sub(p.x)
 		if err != nil {
 			return nil, err
 		}
 
-		s, err := s1.Div(*s2)
+		s, err := s1.Div(s2)
 		if err != nil {
 			return nil, err
 		}
@@ -96,27 +96,27 @@ func (p Point) Add(other Point) (*Point, error) {
 			return nil, err
 		}
 
-		x2, err := x1.Sub(*p.x)
+		x2, err := x1.Sub(p.x)
 		if err != nil {
 			return nil, err
 		}
 
-		nx, err := x2.Sub(*other.x)
+		nx, err := x2.Sub(other.x)
 		if err != nil {
 			return nil, err
 		}
 
-		y1, err := p.x.Sub(*nx)
+		y1, err := p.x.Sub(nx)
 		if err != nil {
 			return nil, err
 		}
 
-		y2, err := s.Mul(*y1)
+		y2, err := s.Mul(y1)
 		if err != nil {
 			return nil, err
 		}
 
-		ny, err := y2.Sub(*p.y)
+		ny, err := y2.Sub(p.y)
 		if err != nil {
 			return nil, err
 		}
@@ -129,11 +129,11 @@ func (p Point) Add(other Point) (*Point, error) {
 	// p와 other가 같은 점인지 확인
 	if samePoint(p.x, p.y, other.x, other.y) {
 		// case 2-1 예외 처리: 접선이 x축에 수직인 경우, 무한원점을 반환
-		if p.y.num.Cmp(big.NewInt(0)) == 0 {
+		if p.y.Num().Cmp(big.NewInt(0)) == 0 {
 			return New(nil, nil, p.a, p.b)
 		}
 		// 접선의 기울기 구하기
-		p1, err := NewFieldElement(big.NewInt(3), p.x.prime)
+		p1, err := NewFieldElement(big.NewInt(3), p.x.Prime())
 		if err != nil {
 			return nil, err
 		}
@@ -143,27 +143,27 @@ func (p Point) Add(other Point) (*Point, error) {
 			return nil, err
 		}
 
-		p3, err := p1.Mul(*p2)
+		p3, err := p1.Mul(p2)
 		if err != nil {
 			return nil, err
 		}
 
-		p4, err := p3.Add(*p.a)
+		p4, err := p3.Add(p.a)
 		if err != nil {
 			return nil, err
 		}
 
-		c1, err := NewFieldElement(big.NewInt(2), p.x.prime)
+		c1, err := NewFieldElement(big.NewInt(2), p.x.Prime())
 		if err != nil {
 			return nil, err
 		}
 
-		c2, err := c1.Mul(*p.y)
+		c2, err := c1.Mul(p.y)
 		if err != nil {
 			return nil, err
 		}
 
-		s, err := p4.Div(*c2)
+		s, err := p4.Div(c2)
 		if err != nil {
 			return nil, err
 		}
@@ -174,32 +174,32 @@ func (p Point) Add(other Point) (*Point, error) {
 			return nil, err
 		}
 
-		x1, err := NewFieldElement(big.NewInt(2), p.x.prime)
+		x1, err := NewFieldElement(big.NewInt(2), p.x.Prime())
 		if err != nil {
 			return nil, err
 		}
 
-		x2, err := x1.Mul(*p.x)
+		x2, err := x1.Mul(p.x)
 		if err != nil {
 			return nil, err
 		}
 
-		nx, err := s2.Sub(*x2)
+		nx, err := s2.Sub(x2)
 		if err != nil {
 			return nil, err
 		}
 
-		y1, err := p.x.Sub(*nx)
+		y1, err := p.x.Sub(nx)
 		if err != nil {
 			return nil, err
 		}
 
-		y2, err := s.Mul(*y1)
+		y2, err := s.Mul(y1)
 		if err != nil {
 			return nil, err
 		}
 
-		ny, err := y2.Sub(*p.y)
+		ny, err := y2.Sub(p.y)
 		if err != nil {
 			return nil, err
 		}
@@ -240,12 +240,12 @@ func (p Point) Mul(coefficient *big.Int) (*Point, error) {
 }
 
 // 무한원점인지 확인하는 함수
-func isInfinity(x, y *FieldElement) bool {
+func isInfinity(x, y FieldElement) bool {
 	return x == nil && y == nil
 }
 
 // 타원곡선 위에 있는지 확인하는 함수
-func isOnCurve(x, y, a, b *FieldElement) bool {
+func isOnCurve(x, y, a, b FieldElement) bool {
 	left, err := y.Pow(big.NewInt(2))
 	if err != nil {
 		return false
@@ -256,35 +256,35 @@ func isOnCurve(x, y, a, b *FieldElement) bool {
 		return false
 	}
 
-	r2, err := a.Mul(*x)
+	r2, err := a.Mul(x)
 	if err != nil {
 		return false
 	}
 
-	r3, err := r1.Add(*r2)
+	r3, err := r1.Add(r2)
 	if err != nil {
 		return false
 	}
 
-	right, err := r3.Add(*b)
+	right, err := r3.Add(b)
 	if err != nil {
 		return false
 	}
 
-	return left.Equal(*right)
+	return left.Equal(right)
 }
 
 // 두 점이 서로 역원인지 확인하는 함수
-func areInverse(x1, x2, y1, y2 *FieldElement) bool {
-	return x1.Equal(*x2) && y1.NotEqual(*y2)
+func areInverse(x1, x2, y1, y2 FieldElement) bool {
+	return x1.Equal(x2) && y1.NotEqual(y2)
 }
 
 // 두 타원곡선이 같은지 확인하는 함수
-func sameCurve(a1, b1, a2, b2 *FieldElement) bool {
-	return a1.Equal(*a2) && b1.Equal(*b2)
+func sameCurve(a1, b1, a2, b2 FieldElement) bool {
+	return a1.Equal(a2) && b1.Equal(b2)
 }
 
 // 두 점이 같은지 확인하는 함수
-func samePoint(x1, y1, x2, y2 *FieldElement) bool {
-	return x1.Equal(*x2) && y1.Equal(*y2)
+func samePoint(x1, y1, x2, y2 FieldElement) bool {
+	return x1.Equal(x2) && y1.Equal(y2)
 }
