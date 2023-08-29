@@ -65,4 +65,22 @@ func main() {
 		fmt.Println(err)
 	}
 	fmt.Println(res4)
+
+	s1, err := p7.Add(*p7)
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println(s1)
+
+	s2, err := p1.Add(*p1)
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println(s2)
+
+	s3, err := p5.Mul(21)
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println(s3)
 }

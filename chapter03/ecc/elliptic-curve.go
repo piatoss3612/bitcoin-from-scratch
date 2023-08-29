@@ -69,7 +69,60 @@ func (p Point) Add(other Point) (*Point, error) {
 		return New(nil, nil, p.a, p.b)
 	}
 
-	/* case2: 두 점이 같은 경우 */
+	/* case2: 두 점이 서로 다른 경우 */
+
+	if p.x.NotEqual(*other.x) {
+		// p와 other를 지나는 직선의 기울기 구하기
+		s1, err := other.y.Sub(*p.y)
+		if err != nil {
+			return nil, err
+		}
+
+		s2, err := other.x.Sub(*p.x)
+		if err != nil {
+			return nil, err
+		}
+
+		s, err := s1.Div(*s2)
+		if err != nil {
+			return nil, err
+		}
+
+		// p와 other를 지나는 직선이 타원곡선과 만나는 다른 한 점 q의 좌표 구하기
+		x1, err := s.Pow(2)
+		if err != nil {
+			return nil, err
+		}
+
+		x2, err := x1.Sub(*p.x)
+		if err != nil {
+			return nil, err
+		}
+
+		nx, err := x2.Sub(*other.x)
+		if err != nil {
+			return nil, err
+		}
+
+		y1, err := p.x.Sub(*nx)
+		if err != nil {
+			return nil, err
+		}
+
+		y2, err := s.Mul(*y1)
+		if err != nil {
+			return nil, err
+		}
+
+		ny, err := y2.Sub(*p.y)
+		if err != nil {
+			return nil, err
+		}
+
+		return New(nx, ny, p.a, p.b)
+	}
+
+	/* case3: 두 점이 같은 경우 */
 
 	// p와 other가 같은 점인지 확인
 	if samePoint(p.x, p.y, other.x, other.y) {
@@ -114,7 +167,7 @@ func (p Point) Add(other Point) (*Point, error) {
 		}
 
 		// 접선과 타원곡선의 교점 q의 좌표 구하기
-		s2, err := p.x.Pow(2)
+		s2, err := s.Pow(2)
 		if err != nil {
 			return nil, err
 		}
@@ -152,56 +205,48 @@ func (p Point) Add(other Point) (*Point, error) {
 		return New(nx, ny, p.a, p.b)
 	}
 
-	/* case3: 두 점이 서로 다른 경우 */
+	return nil, fmt.Errorf("unhandled case, (%s, %s) + (%s, %s)", p.x, p.y, other.x, other.y)
+}
 
-	// p와 other를 지나는 직선의 기울기 구하기
-	s1, err := other.y.Sub(*p.y)
+func (p Point) Mul(coefficient int) (*Point, error) {
+	/*
+		product := &Point{x: nil, y: nil, a: p.a, b: p.b}
+		for i := 0; i < coefficient; i++ {
+			res, err := product.Add(p)
+			if err != nil {
+				return nil, err
+			}
+			product = res
+		}
+		return product, nil
+	*/
+
+	coef := coefficient // 계수
+	current := &p       // 시작점으로 초기화
+
+	result, err := New(nil, nil, p.a, p.b)
 	if err != nil {
 		return nil, err
 	}
 
-	s2, err := other.x.Sub(*p.x)
-	if err != nil {
-		return nil, err
+	// 이진수 전개법을 이용하여 타원곡선의 점 곱셈
+	for coef > 0 {
+		// 가장 오른쪽 비트가 1인지 확인
+		if coef&1 == 1 {
+			result, err = result.Add(*current) // 현재 점을 결과에 더하기
+			if err != nil {
+				return nil, err
+			}
+		}
+		current, err = current.Add(*current) // 현재 점을 두 배로 만들기
+		if err != nil {
+			return nil, err
+		}
+
+		coef >>= 1 // 비트를 오른쪽으로 한 칸씩 이동
 	}
 
-	s, err := s1.Div(*s2)
-	if err != nil {
-		return nil, err
-	}
-
-	// p와 other를 지나는 직선이 타원곡선과 만나는 다른 한 점 q의 좌표 구하기
-	x1, err := s.Pow(2)
-	if err != nil {
-		return nil, err
-	}
-
-	x2, err := x1.Sub(*p.x)
-	if err != nil {
-		return nil, err
-	}
-
-	nx, err := x2.Sub(*other.x)
-	if err != nil {
-		return nil, err
-	}
-
-	y1, err := p.x.Sub(*nx)
-	if err != nil {
-		return nil, err
-	}
-
-	y2, err := s.Mul(*y1)
-	if err != nil {
-		return nil, err
-	}
-
-	ny, err := y2.Sub(*p.y)
-	if err != nil {
-		return nil, err
-	}
-
-	return New(nx, ny, p.a, p.b)
+	return result, nil
 }
 
 // 무한원점인지 확인하는 함수
