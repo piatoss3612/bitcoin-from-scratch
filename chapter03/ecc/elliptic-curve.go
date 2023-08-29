@@ -5,6 +5,35 @@ import (
 	"math/big"
 )
 
+var (
+	A = 0
+	B = 7
+	N = "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141"
+	G Point
+)
+
+func init() {
+	bigGx, _ := new(big.Int).SetString("79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798", 16)
+	bigGy, _ := new(big.Int).SetString("483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8", 16)
+
+	gx, err := NewS256Field(bigGx)
+	if err != nil {
+		panic(err)
+	}
+
+	gy, err := NewS256Field(bigGy)
+	if err != nil {
+		panic(err)
+	}
+
+	g, err := NewS256Point(gx, gy)
+	if err != nil {
+		panic(err)
+	}
+
+	G = g
+}
+
 type Point interface {
 	fmt.Stringer
 	X() FieldElement
@@ -15,6 +44,7 @@ type Point interface {
 	NotEqual(other Point) bool
 	Add(other Point) (Point, error)
 	Mul(coefficient *big.Int) (Point, error)
+	Verify(z FieldElement, sig Signature) (bool, error)
 }
 
 type point struct {
@@ -267,6 +297,87 @@ func (p point) Mul(coefficient *big.Int) (Point, error) {
 	return result, nil
 }
 
+func (p point) Verify(z FieldElement, sig Signature) (bool, error) {
+	// TODO: implement verify
+	return false, nil
+}
+
+type s256Point struct {
+	point
+}
+
+func NewS256Point(x, y FieldElement) (Point, error) {
+	a, err := NewS256Field(big.NewInt(int64(A)))
+	if err != nil {
+		return nil, err
+	}
+
+	b, err := NewS256Field(big.NewInt(int64(B)))
+	if err != nil {
+		return nil, err
+	}
+
+	if isInfinity(x, y) {
+		return &s256Point{point{x: x, y: y, a: a, b: b}}, nil
+	}
+
+	if !isOnCurve(x, y, a, b) {
+		return nil, fmt.Errorf("(%s, %s) is not on the curve", x, y)
+	}
+
+	return &s256Point{point{x: x, y: y, a: a, b: b}}, nil
+}
+
+func (p s256Point) Mul(coefficient *big.Int) (Point, error) {
+	n, ok := new(big.Int).SetString(N, 16)
+	if !ok {
+		return nil, fmt.Errorf("failed to convert N to big.Int")
+	}
+
+	coef := new(big.Int).Mod(coefficient, n)
+
+	return p.point.Mul(coef)
+}
+
+func (p s256Point) Verify(z FieldElement, sig Signature) (bool, error) {
+	n, ok := new(big.Int).SetString(N, 16)
+	if !ok {
+		return false, fmt.Errorf("failed to convert N to big.Int")
+	}
+
+	sInv, err := sig.S().Pow(big.NewInt(0).Sub(n, big.NewInt(2)))
+	if err != nil {
+		return false, err
+	}
+
+	u, err := z.Mul(sInv)
+	if err != nil {
+		return false, err
+	}
+
+	v, err := sig.R().Mul(sInv)
+	if err != nil {
+		return false, err
+	}
+
+	uG, err := G.Mul(u.Num())
+	if err != nil {
+		return false, err
+	}
+
+	vP, err := p.Mul(v.Num())
+	if err != nil {
+		return false, err
+	}
+
+	x, err := uG.Add(vP)
+	if err != nil {
+		return false, err
+	}
+
+	return x.X().Num().Cmp(sig.R().Num()) == 0, nil
+}
+
 // 무한원점인지 확인하는 함수
 func isInfinity(x, y FieldElement) bool {
 	return x == nil && y == nil
@@ -315,47 +426,4 @@ func sameCurve(a1, b1, a2, b2 FieldElement) bool {
 // 두 점이 같은지 확인하는 함수
 func samePoint(x1, y1, x2, y2 FieldElement) bool {
 	return x1.Equal(x2) && y1.Equal(y2)
-}
-
-var (
-	A = 0
-	B = 7
-	N = "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141"
-)
-
-type s256Point struct {
-	point
-}
-
-func NewS256Point(x, y FieldElement) (Point, error) {
-	a, err := NewS256Field(big.NewInt(int64(A)))
-	if err != nil {
-		return nil, err
-	}
-
-	b, err := NewS256Field(big.NewInt(int64(B)))
-	if err != nil {
-		return nil, err
-	}
-
-	if isInfinity(x, y) {
-		return &s256Point{point{x: x, y: y, a: a, b: b}}, nil
-	}
-
-	if !isOnCurve(x, y, a, b) {
-		return nil, fmt.Errorf("(%s, %s) is not on the curve", x, y)
-	}
-
-	return &s256Point{point{x: x, y: y, a: a, b: b}}, nil
-}
-
-func (p s256Point) Mul(coefficient *big.Int) (Point, error) {
-	n, ok := new(big.Int).SetString(N, 16)
-	if !ok {
-		return nil, fmt.Errorf("failed to convert N to big.Int")
-	}
-
-	coef := new(big.Int).Mod(coefficient, n)
-
-	return p.point.Mul(coef)
 }
