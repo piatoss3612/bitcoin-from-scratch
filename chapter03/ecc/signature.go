@@ -1,8 +1,11 @@
 package ecc
 
 import (
-	"crypto/rand"
+	"bytes"
+	"crypto/hmac"
+	"crypto/sha256"
 	"fmt"
+	"hash"
 	"math/big"
 )
 
@@ -52,10 +55,18 @@ func NewS256PrivateKey(secret FieldElement) (PrivateKey, error) {
 }
 
 func (pvk s256PrivateKey) Sign(z FieldElement) (Signature, error) {
-	bigK, err := rand.Int(rand.Reader, N)
+	/*
+		bigK, err := rand.Int(rand.Reader, N)
+		if err != nil {
+			return nil, err
+		}
+	*/
+	bigK, err := pvk.deterministicK(z)
 	if err != nil {
 		return nil, err
 	}
+
+	fmt.Println(bigK)
 
 	kG, err := G.Mul(bigK)
 	if err != nil {
@@ -109,4 +120,45 @@ func (pvk s256PrivateKey) Sign(z FieldElement) (Signature, error) {
 
 func (pvk s256PrivateKey) String() string {
 	return fmt.Sprintf("PrivateKey(%s)", pvk.secret.Num().Text(16))
+}
+
+// reference: https://github.com/codahale/rfc6979/blob/master/rfc6979.go
+func (pvk s256PrivateKey) deterministicK(z FieldElement) (*big.Int, error) {
+	k := bytes.Repeat([]byte{0x00}, 32)
+	v := bytes.Repeat([]byte{0x01}, 32)
+
+	zNum := z.Num()
+
+	if zNum.Cmp(N) == 1 {
+		zNum = big.NewInt(0).Sub(zNum, N)
+	}
+
+	zBytes := zNum.Bytes()
+	secreteBytes := pvk.secret.Num().Bytes()
+
+	alg := sha256.New
+
+	k = pvk.mac(alg, k, append(append(v, 0x00), append(secreteBytes, zBytes...)...), k)
+	v = pvk.mac(alg, k, v, v)
+
+	k = pvk.mac(alg, k, append(append(v, 0x01), append(secreteBytes, zBytes...)...), k)
+	v = pvk.mac(alg, k, v, v)
+
+	for {
+		v = pvk.mac(alg, k, v, v)
+		candidate := big.NewInt(0).SetBytes(v)
+
+		if candidate.Cmp(big.NewInt(0)) == 1 && candidate.Cmp(N) == -1 {
+			return candidate, nil
+		}
+
+		k = pvk.mac(alg, k, append(v, 0x00), k)
+		v = pvk.mac(alg, k, v, v)
+	}
+}
+
+func (pvk s256PrivateKey) mac(alg func() hash.Hash, k, m, buf []byte) []byte {
+	h := hmac.New(alg, k)
+	h.Write(m)
+	return h.Sum(buf[:0])
 }
