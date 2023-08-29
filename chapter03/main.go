@@ -10,6 +10,7 @@ import (
 func main() {
 	sigTest1()
 	sigTest2()
+	sigTest3()
 }
 
 func sigTest1() {
@@ -122,5 +123,32 @@ func sigTest2() {
 	fmt.Println(z.Num().Text(16))
 
 	sig := ecc.NewS256Signature(r, s)
+	fmt.Println(sig)
+}
+
+func sigTest3() {
+	bigE := big.NewInt(12345)
+	bigZ := new(big.Int).SetBytes(hash256.New([]byte("Programming Bitcoin!")))
+
+	e, err := ecc.NewFieldElement(bigE, ecc.N)
+	if err != nil {
+		panic(err)
+	}
+
+	z, err := ecc.NewFieldElement(bigZ, ecc.N)
+	if err != nil {
+		panic(err)
+	}
+
+	pvk, err := ecc.NewS256PrivateKey(e)
+	if err != nil {
+		panic(err)
+	}
+
+	sig, err := pvk.Sign(z)
+	if err != nil {
+		panic(err)
+	}
+
 	fmt.Println(sig)
 }
