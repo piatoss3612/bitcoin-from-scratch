@@ -5,15 +5,27 @@ import (
 	"math/big"
 )
 
-type Point struct {
+type Point interface {
+	fmt.Stringer
+	X() FieldElement
+	Y() FieldElement
+	A() FieldElement
+	B() FieldElement
+	Equal(other Point) bool
+	NotEqual(other Point) bool
+	Add(other Point) (Point, error)
+	Mul(coefficient *big.Int) (Point, error)
+}
+
+type point struct {
 	x, y, a, b FieldElement
 }
 
 // 타원곡선의 점을 생성하는 함수
-func New(x, y, a, b FieldElement) (*Point, error) {
+func New(x, y, a, b FieldElement) (Point, error) {
 	// 무한원점인지 확인
 	if isInfinity(x, y) {
-		return &Point{x: x, y: y, a: a, b: b}, nil
+		return &point{x: x, y: y, a: a, b: b}, nil
 	}
 
 	// 주어진 점이 타원곡선 위에 있는지 확인
@@ -21,11 +33,27 @@ func New(x, y, a, b FieldElement) (*Point, error) {
 		return nil, fmt.Errorf("(%s, %s) is not on the curve", x, y)
 	}
 
-	return &Point{x: x, y: y, a: a, b: b}, nil
+	return &point{x: x, y: y, a: a, b: b}, nil
+}
+
+func (p point) X() FieldElement {
+	return p.x
+}
+
+func (p point) Y() FieldElement {
+	return p.y
+}
+
+func (p point) A() FieldElement {
+	return p.a
+}
+
+func (p point) B() FieldElement {
+	return p.b
 }
 
 // 타원곡선의 점을 문자열로 표현하는 함수 (Stringer 인터페이스 구현)
-func (p Point) String() string {
+func (p point) String() string {
 	// 무한원점인지 확인
 	if isInfinity(p.x, p.y) {
 		return "Point(infinity)"
@@ -34,23 +62,23 @@ func (p Point) String() string {
 }
 
 // 두 타원곡선의 점이 같은지 확인하는 함수
-func (p Point) Equal(other Point) bool {
+func (p point) Equal(other Point) bool {
 	// 두 점의 좌표가 같고 같은 타원곡선 위에 있는지 확인
-	return samePoint(p.x, p.y, other.x, other.y) &&
-		sameCurve(p.a, p.b, other.a, other.b)
+	return samePoint(p.x, p.y, other.X(), other.Y()) &&
+		sameCurve(p.a, p.b, other.A(), other.B())
 }
 
 // 두 타원곡선의 점이 다른지 확인하는 함수
-func (p Point) NotEqual(other Point) bool {
-	return !(samePoint(p.x, p.y, other.x, other.y) &&
-		sameCurve(p.a, p.b, other.a, other.b))
+func (p point) NotEqual(other Point) bool {
+	return !(samePoint(p.x, p.y, other.X(), other.Y()) &&
+		sameCurve(p.a, p.b, other.A(), other.B()))
 }
 
 // 두 타원곡선의 점을 더하는 함수
-func (p Point) Add(other Point) (*Point, error) {
+func (p point) Add(other Point) (Point, error) {
 
 	// 같은 타원곡선 위에 있는지 확인
-	if !sameCurve(p.a, p.b, other.a, other.b) {
+	if !sameCurve(p.a, p.b, other.A(), other.B()) {
 		return nil, fmt.Errorf("points %s and %s are not on the same curve", p, other)
 	}
 
@@ -58,29 +86,29 @@ func (p Point) Add(other Point) (*Point, error) {
 
 	// p가 무한원점인지 확인
 	if isInfinity(p.x, p.y) {
-		return &other, nil
+		return other, nil
 	}
 
 	// other가 무한원점인지 확인
-	if isInfinity(other.x, other.y) {
+	if isInfinity(other.X(), other.Y()) {
 		return &p, nil
 	}
 
 	// 한 점에 그의 역원을 더하는 경우, 무한원점을 반환
-	if areInverse(p.x, other.x, p.y, other.y) {
+	if areInverse(p.x, other.X(), p.y, other.Y()) {
 		return New(nil, nil, p.a, p.b)
 	}
 
 	/* case2: 두 점이 서로 다른 경우 */
 
-	if p.x.NotEqual(other.x) {
+	if p.x.NotEqual(other.X()) {
 		// p와 other를 지나는 직선의 기울기 구하기
-		s1, err := other.y.Sub(p.y)
+		s1, err := other.Y().Sub(p.y)
 		if err != nil {
 			return nil, err
 		}
 
-		s2, err := other.x.Sub(p.x)
+		s2, err := other.X().Sub(p.x)
 		if err != nil {
 			return nil, err
 		}
@@ -101,7 +129,7 @@ func (p Point) Add(other Point) (*Point, error) {
 			return nil, err
 		}
 
-		nx, err := x2.Sub(other.x)
+		nx, err := x2.Sub(other.X())
 		if err != nil {
 			return nil, err
 		}
@@ -127,7 +155,7 @@ func (p Point) Add(other Point) (*Point, error) {
 	/* case3: 두 점이 같은 경우 */
 
 	// p와 other가 같은 점인지 확인
-	if samePoint(p.x, p.y, other.x, other.y) {
+	if samePoint(p.x, p.y, other.X(), other.Y()) {
 		// case 2-1 예외 처리: 접선이 x축에 수직인 경우, 무한원점을 반환
 		if p.y.Num().Cmp(big.NewInt(0)) == 0 {
 			return New(nil, nil, p.a, p.b)
@@ -207,12 +235,12 @@ func (p Point) Add(other Point) (*Point, error) {
 		return New(nx, ny, p.a, p.b)
 	}
 
-	return nil, fmt.Errorf("unhandled case, (%s, %s) + (%s, %s)", p.x, p.y, other.x, other.y)
+	return nil, fmt.Errorf("unhandled case, (%s, %s) + (%s, %s)", p.x, p.y, other.X(), other.Y())
 }
 
-func (p Point) Mul(coefficient *big.Int) (*Point, error) {
-	coef := coefficient // 계수
-	current := &p       // 시작점으로 초기화
+func (p point) Mul(coefficient *big.Int) (Point, error) {
+	coef := coefficient  // 계수
+	current := Point(&p) // 시작점으로 초기화
 
 	result, err := New(nil, nil, p.a, p.b)
 	if err != nil {
@@ -223,12 +251,12 @@ func (p Point) Mul(coefficient *big.Int) (*Point, error) {
 	for coef.Cmp(big.NewInt(0)) == 1 {
 		// 가장 오른쪽 비트가 1인지 확인
 		if coef.Bit(0) == 1 {
-			result, err = result.Add(*current) // 현재 점을 결과에 더하기
+			result, err = result.Add(current) // 현재 점을 결과에 더하기
 			if err != nil {
 				return nil, err
 			}
 		}
-		current, err = current.Add(*current) // 현재 점을 두 배로 만들기
+		current, err = current.Add(current) // 현재 점을 두 배로 만들기
 		if err != nil {
 			return nil, err
 		}

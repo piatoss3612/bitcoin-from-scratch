@@ -6,9 +6,9 @@ import (
 )
 
 type FieldElement interface {
+	fmt.Stringer
 	Num() *big.Int
 	Prime() *big.Int
-	String() string
 	Equal(other FieldElement) bool
 	NotEqual(other FieldElement) bool
 	Add(other FieldElement) (FieldElement, error)
@@ -43,7 +43,7 @@ func (f fieldElement) Prime() *big.Int {
 
 // 유한체의 원소를 문자열로 표현하는 함수 (Stringer 인터페이스 구현)
 func (f fieldElement) String() string {
-	return fmt.Sprintf("FieldElement_%d(%d)", f.prime, f.num)
+	return fmt.Sprintf("FieldElement_%s(%s)", f.prime, f.num)
 }
 
 // 유한체의 원소가 같은 유한체에 속하고 같은 값을 가지는지 확인하는 함수
