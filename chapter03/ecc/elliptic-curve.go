@@ -5,20 +5,6 @@ import (
 	"math/big"
 )
 
-// 타원곡선의 점 인터페이스
-type Point interface {
-	fmt.Stringer
-	X() FieldElement
-	Y() FieldElement
-	A() FieldElement
-	B() FieldElement
-	Equal(other Point) bool
-	NotEqual(other Point) bool
-	Add(other Point) (Point, error)
-	Mul(coefficient *big.Int) (Point, error)
-	Verify(z *big.Int, sig Signature) (bool, error)
-}
-
 // 타원곡선의 점 구조체
 type point struct {
 	x, y, a, b FieldElement

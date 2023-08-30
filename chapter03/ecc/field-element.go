@@ -5,20 +5,6 @@ import (
 	"math/big"
 )
 
-// 유한체의 원소 인터페이스
-type FieldElement interface {
-	fmt.Stringer
-	Num() *big.Int
-	Prime() *big.Int
-	Equal(other FieldElement) bool
-	NotEqual(other FieldElement) bool
-	Add(other FieldElement) (FieldElement, error)
-	Sub(other FieldElement) (FieldElement, error)
-	Mul(other FieldElement) (FieldElement, error)
-	Pow(exp *big.Int) (FieldElement, error)
-	Div(other FieldElement) (FieldElement, error)
-}
-
 // 유한체의 원소를 나타내는 구조체
 type fieldElement struct {
 	num   *big.Int

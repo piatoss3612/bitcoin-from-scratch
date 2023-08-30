@@ -9,13 +9,6 @@ import (
 	"math/big"
 )
 
-// 서명 인터페이스
-type Signature interface {
-	fmt.Stringer
-	R() *big.Int
-	S() *big.Int
-}
-
 // secp256k1 서명 구조체
 type s256Signature struct {
 	r *big.Int
@@ -40,12 +33,6 @@ func (sig s256Signature) S() *big.Int {
 // secp256k1 서명을 문자열로 반환하는 함수 (Stringer 인터페이스 구현)
 func (sig s256Signature) String() string {
 	return fmt.Sprintf("Signature(%s, %s)", sig.r.Text(16), sig.s.Text(16))
-}
-
-// 개인키 인터페이스
-type PrivateKey interface {
-	fmt.Stringer
-	Sign(z *big.Int) (Signature, error)
 }
 
 // secp256k1 개인키 구조체
