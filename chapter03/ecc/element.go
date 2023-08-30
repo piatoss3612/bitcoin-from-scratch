@@ -13,7 +13,11 @@ type fieldElement struct {
 
 // 유한체의 원소를 생성하는 함수
 func NewFieldElement(num, prime *big.Int) (FieldElement, error) {
-	if num.Cmp(prime) != -1 || num.Cmp(big.NewInt(0)) == -1 {
+	if num == nil || prime == nil {
+		return nil, fmt.Errorf("num or prime cannot be nil")
+	}
+
+	if !inRange(num, prime) {
 		return nil, fmt.Errorf("num %s not in field range 0 to %s", num, prime.Sub(prime, big.NewInt(1)))
 	}
 
@@ -37,88 +41,60 @@ func (f fieldElement) String() string {
 
 // 유한체의 원소가 같은 유한체에 속하고 같은 값을 가지는지 확인하는 함수
 func (f fieldElement) Equal(other FieldElement) bool {
-	return f.num.Cmp(other.Num()) == 0 && f.prime.Cmp(other.Prime()) == 0
+	return sameBN(f.num, other.Num()) && sameBN(f.prime, other.Prime())
 }
 
 func (f fieldElement) NotEqual(other FieldElement) bool {
-	return f.num.Cmp(other.Num()) != 0 || f.prime.Cmp(other.Prime()) != 0
+	return !f.Equal(other)
 }
 
 // 유한체의 원소를 더하는 함수 (더한 결과는 같은 유한체에 속함)
 func (f fieldElement) Add(other FieldElement) (FieldElement, error) {
-	if f.prime.Cmp(other.Prime()) != 0 {
+	if !sameBN(f.prime, other.Prime()) {
 		return nil, fmt.Errorf("cannot add two numbers in different Fields %d, %d", f.prime, other.Prime())
 	}
 
-	num := big.NewInt(0).Mod(big.NewInt(0).Add(f.num, other.Num()), f.prime)
+	num := addBN(f.num, other.Num(), f.prime)
 	return NewFieldElement(num, f.prime)
 }
 
 // 유한체의 원소를 빼는 함수 (뺀 결과는 같은 유한체에 속함)
 func (f fieldElement) Sub(other FieldElement) (FieldElement, error) {
-	if f.prime.Cmp(other.Prime()) != 0 {
+	if !sameBN(f.prime, other.Prime()) {
 		return nil, fmt.Errorf("cannot add two numbers in different Fields %d, %d", f.prime, other.Prime())
 	}
 
-	num := big.NewInt(0).Mod(big.NewInt(0).Sub(f.num, other.Num()), f.prime)
-	// 음수일 경우 prime을 더해줌
-	if num.Cmp(big.NewInt(0)) == -1 {
-		num.Add(num, f.prime)
-	}
+	num := subBN(f.num, other.Num(), f.prime)
 	return NewFieldElement(num, f.prime)
 }
 
 // 유한체의 원소를 곱하는 함수 (곱한 결과는 같은 유한체에 속함)
 func (f fieldElement) Mul(other FieldElement) (FieldElement, error) {
-	if f.prime.Cmp(other.Prime()) != 0 {
+	if !sameBN(f.prime, other.Prime()) {
 		return nil, fmt.Errorf("cannot add two numbers in different Fields %d, %d", f.prime, other.Prime())
 	}
 
-	num := big.NewInt(0).Mod(big.NewInt(0).Mul(f.num, other.Num()), f.prime)
+	num := mulBN(f.num, other.Num(), f.prime)
 	return NewFieldElement(num, f.prime)
 }
 
 // 유한체의 원소를 거듭제곱하는 함수 (거듭제곱한 결과는 같은 유한체에 속함)
 func (f fieldElement) Pow(exp *big.Int) (FieldElement, error) {
 	exp.Mod(exp, big.NewInt(0).Sub(f.prime, big.NewInt(1)))
-	// 지수가 음수일 경우 양수로 변환
-	if exp.Cmp(big.NewInt(0)) == -1 {
-		exp.Add(exp, big.NewInt(0).Sub(f.prime, big.NewInt(1)))
-	}
 
-	num := big.NewInt(0).Mod(big.NewInt(0).Exp(f.num, exp, f.prime), f.prime)
+	num := powBN(f.num, exp, f.prime)
 	return NewFieldElement(num, f.prime)
 }
 
 // 유한체의 원소를 나누는 함수 (나눈 결과는 같은 유한체에 속함)
 func (f fieldElement) Div(other FieldElement) (FieldElement, error) {
-	if f.prime.Cmp(other.Prime()) != 0 {
+	if !sameBN(f.prime, other.Prime()) {
 		return nil, fmt.Errorf("cannot add two numbers in different Fields %d, %d", f.prime, other.Prime())
 	}
 
 	// 페르마의 소정리를 이용하여 나눗셈을 곱셈으로 변환
-	num := big.NewInt(0).Mod(big.NewInt(0).Mul(f.num, pow(other.Num(), big.NewInt(0).Sub(f.prime, big.NewInt(2)), f.prime)), f.prime)
-
+	num := mulBN(f.num, invBN(other.Num(), f.prime), f.prime)
 	return NewFieldElement(num, f.prime)
-}
-
-// 거듭제곱을 구하는 함수 (분할정복을 이용)
-func pow(num, exp, mod *big.Int) *big.Int {
-	if exp.Cmp(big.NewInt(0)) == 0 {
-		return big.NewInt(1)
-	}
-
-	if exp.Cmp(big.NewInt(1)) == 0 {
-		return num
-	}
-
-	if exp.Bit(0) == 0 {
-		temp := pow(num, exp.Div(exp, big.NewInt(2)), mod)
-		return big.NewInt(0).Mod(big.NewInt(0).Mul(temp, temp), mod)
-	}
-
-	temp := pow(num, exp.Div(exp.Sub(exp, big.NewInt(1)), big.NewInt(2)), mod)
-	return big.NewInt(0).Mod(big.NewInt(0).Mul(big.NewInt(0).Mul(temp, temp), num), mod)
 }
 
 // secp256k1 유한체의 원소 구조체

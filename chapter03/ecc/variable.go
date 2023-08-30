@@ -7,7 +7,11 @@ var (
 	B = 7 // secp256k1 타원곡선의 b 계수
 	G Point
 	N *big.Int
-	P *big.Int // 2^256 - 2^32 - 977
+	P = big.NewInt(0).Sub(
+		big.NewInt(0).Sub(
+			big.NewInt(0).Exp(big.NewInt(2), big.NewInt(256), nil),
+			big.NewInt(0).Exp(big.NewInt(2), big.NewInt(32), nil)),
+		big.NewInt(977))
 )
 
 func init() {
@@ -21,9 +25,4 @@ func init() {
 
 	G = g
 	N = n
-	P = big.NewInt(0).Sub(
-		big.NewInt(0).Sub(
-			big.NewInt(0).Exp(big.NewInt(2), big.NewInt(256), nil),
-			big.NewInt(0).Exp(big.NewInt(2), big.NewInt(32), nil)),
-		big.NewInt(977))
 }

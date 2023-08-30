@@ -234,13 +234,27 @@ func (p point) Add(other Point) (Point, error) {
 
 // 타원곡선 점의 스칼라 곱셈 함수
 func (p point) Mul(coefficient *big.Int) (Point, error) {
-	coef := coefficient  // 계수
 	current := Point(&p) // 시작점으로 초기화
 
 	result, err := NewPoint(nil, nil, p.a, p.b)
 	if err != nil {
 		return nil, err
 	}
+
+	return p.mul(coefficient, current, result)
+}
+
+// 타원곡선 점의 서명 검증 함수
+func (p point) Verify(z *big.Int, sig Signature) (bool, error) {
+	// TODO: implement verify
+	return false, nil
+}
+
+// 타원곡선 점의 스칼라 곱셈 함수
+func (p point) mul(coefficient *big.Int, current, result Point) (Point, error) {
+	coef := coefficient // 계수
+
+	var err error
 
 	// 이진수 전개법을 이용하여 타원곡선의 점 곱셈
 	for coef.Cmp(big.NewInt(0)) == 1 {
@@ -260,12 +274,6 @@ func (p point) Mul(coefficient *big.Int) (Point, error) {
 	}
 
 	return result, nil
-}
-
-// 타원곡선 점의 서명 검증 함수
-func (p point) Verify(z *big.Int, sig Signature) (bool, error) {
-	// TODO: implement verify
-	return false, nil
 }
 
 // secp256k1 타원곡선의 점 구조체
@@ -301,17 +309,21 @@ func (p s256Point) Mul(coefficient *big.Int) (Point, error) {
 	// 계수가 N보다 큰 경우, 계수를 N으로 나눈 나머지를 계수로 사용
 	// 왜? N*G = O, 무한원점 이기 때문에 N보다 큰 계수는 N으로 나눈 나머지를 계수로 사용해도 결과는 같음
 	coef := new(big.Int).Mod(coefficient, N)
+	current := Point(&p) // 시작점으로 초기화
 
-	return p.point.Mul(coef)
+	result, err := NewS256Point(nil, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return p.mul(coef, current, result)
 }
 
 // secp256k1 타원곡선의 점의 서명 검증 함수
 func (p s256Point) Verify(z *big.Int, sig Signature) (bool, error) {
-	sInv := big.NewInt(0).ModInverse(sig.S(), N) // s의 역원
-
-	u := big.NewInt(0).Mod(big.NewInt(0).Mul(z, sInv), N) // u = z/s
-
-	v := big.NewInt(0).Mod(big.NewInt(0).Mul(sig.R(), sInv), N) // v = r/s
+	sInv := big.NewInt(0).ModInverse(sig.S(), N)                // s의 역원
+	u := big.NewInt(0).Mod(big.NewInt(0).Mul(z, sInv), N)       // u = z * s^-1
+	v := big.NewInt(0).Mod(big.NewInt(0).Mul(sig.R(), sInv), N) // v = r * s^-1
 
 	uG, err := G.Mul(u) // uG
 	if err != nil {
@@ -323,10 +335,10 @@ func (p s256Point) Verify(z *big.Int, sig Signature) (bool, error) {
 		return false, err
 	}
 
-	x, err := uG.Add(vP) // uG + vP
+	res, err := uG.Add(vP) // uG + vP
 	if err != nil {
 		return false, err
 	}
 
-	return x.X().Num().Cmp(sig.R()) == 0, nil // x의 x좌표가 r과 같은지 확인
+	return res.X().Num().Cmp(sig.R()) == 0, nil // res의 x좌표가 r과 같은지 확인
 }
