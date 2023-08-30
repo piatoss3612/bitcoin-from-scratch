@@ -117,7 +117,6 @@ func (p point) NotEqual(other Point) bool {
 
 // 두 타원곡선의 점을 더하는 함수
 func (p point) Add(other Point) (Point, error) {
-
 	// 같은 타원곡선 위에 있는지 확인
 	if !sameCurve(p.a, p.b, other.A(), other.B()) {
 		return nil, fmt.Errorf("points %s and %s are not on the same curve", p, other)
@@ -144,53 +143,60 @@ func (p point) Add(other Point) (Point, error) {
 
 	if p.x.NotEqual(other.X()) {
 		// p와 other를 지나는 직선의 기울기 구하기
-		s1, err := other.Y().Sub(p.y)
-		if err != nil {
-			return nil, err
-		}
+		prime := p.x.Prime()
 
-		s2, err := other.X().Sub(p.x)
-		if err != nil {
-			return nil, err
-		}
-
-		s, err := s1.Div(s2)
-		if err != nil {
-			return nil, err
-		}
+		// s = (other.y - p.y) * (other.x - p.x)^-1 % prime
+		s := big.NewInt(0).Mod(
+			// (other.y - p.y) * (other.x - p.x)^-1
+			big.NewInt(0).Mul(
+				// (other.y - p.y) % prime
+				big.NewInt(0).Mod(big.NewInt(0).Sub(other.Y().Num(), p.y.Num()), prime),
+				// * (other.x - p.x)^-1 % prime
+				big.NewInt(0).ModInverse(big.NewInt(0).Sub(other.X().Num(), p.x.Num()), prime),
+			),
+			prime,
+		)
 
 		// p와 other를 지나는 직선이 타원곡선과 만나는 다른 한 점 q의 좌표 구하기
-		x1, err := s.Pow(big.NewInt(2))
+
+		// nx = s^2 - p.x - other.x % prime
+		nx := big.NewInt(0).Mod(
+			big.NewInt(0).Sub(
+				big.NewInt(0).Sub(
+					big.NewInt(0).Exp(s, big.NewInt(2), nil),
+					p.x.Num(),
+				),
+				other.X().Num(),
+			),
+			prime,
+		)
+
+		// ny = (s * (p.x - nx) - p.y) % prime
+		ny := big.NewInt(0).Mod(
+			big.NewInt(0).Sub(
+				big.NewInt(0).Mod(
+					big.NewInt(0).Mul(
+						s,
+						big.NewInt(0).Sub(p.x.Num(), nx),
+					),
+					prime,
+				),
+				p.y.Num(),
+			),
+			prime,
+		)
+
+		nxe, err := NewFieldElement(nx, prime)
 		if err != nil {
 			return nil, err
 		}
 
-		x2, err := x1.Sub(p.x)
+		nye, err := NewFieldElement(ny, prime)
 		if err != nil {
 			return nil, err
 		}
 
-		nx, err := x2.Sub(other.X())
-		if err != nil {
-			return nil, err
-		}
-
-		y1, err := p.x.Sub(nx)
-		if err != nil {
-			return nil, err
-		}
-
-		y2, err := s.Mul(y1)
-		if err != nil {
-			return nil, err
-		}
-
-		ny, err := y2.Sub(p.y)
-		if err != nil {
-			return nil, err
-		}
-
-		return NewPoint(nx, ny, p.a, p.b)
+		return NewPoint(nxe, nye, p.a, p.b)
 	}
 
 	/* case3: 두 점이 같은 경우 */
@@ -202,78 +208,72 @@ func (p point) Add(other Point) (Point, error) {
 			return NewPoint(nil, nil, p.a, p.b)
 		}
 		// 접선의 기울기 구하기
-		p1, err := NewFieldElement(big.NewInt(3), p.x.Prime())
-		if err != nil {
-			return nil, err
-		}
+		prime := p.x.Prime()
 
-		p2, err := p.x.Pow(big.NewInt(2))
-		if err != nil {
-			return nil, err
-		}
-
-		p3, err := p1.Mul(p2)
-		if err != nil {
-			return nil, err
-		}
-
-		p4, err := p3.Add(p.a)
-		if err != nil {
-			return nil, err
-		}
-
-		c1, err := NewFieldElement(big.NewInt(2), p.x.Prime())
-		if err != nil {
-			return nil, err
-		}
-
-		c2, err := c1.Mul(p.y)
-		if err != nil {
-			return nil, err
-		}
-
-		s, err := p4.Div(c2)
-		if err != nil {
-			return nil, err
-		}
+		// s = (3 * p.x^2 + p.a) * (2 * p.y)^-1 % prime
+		s := big.NewInt(0).Mod(
+			big.NewInt(0).Mul(
+				big.NewInt(0).Add(
+					big.NewInt(0).Mul(
+						big.NewInt(3),
+						big.NewInt(0).Exp(p.x.Num(), big.NewInt(2), prime),
+					),
+					p.a.Num(),
+				),
+				big.NewInt(0).ModInverse(
+					big.NewInt(0).Mul(
+						big.NewInt(2),
+						p.y.Num(),
+					),
+					prime,
+				),
+			),
+			prime,
+		)
 
 		// 접선과 타원곡선의 교점 q의 좌표 구하기
-		s2, err := s.Pow(big.NewInt(2))
+
+		// nx = (s^2 - 2 * p.x) % prime
+		nx := big.NewInt(0).Mod(
+			big.NewInt(0).Sub(
+				big.NewInt(0).Exp(s, big.NewInt(2), prime),
+				big.NewInt(0).Mod(
+					big.NewInt(0).Mul(
+						big.NewInt(2),
+						p.x.Num(),
+					),
+					prime,
+				),
+			),
+			prime,
+		)
+
+		// ny = (s * (p.x - nx) - p.y) % prime
+		ny := big.NewInt(0).Mod(
+			big.NewInt(0).Sub(
+				big.NewInt(0).Mod(
+					big.NewInt(0).Mul(
+						s,
+						big.NewInt(0).Sub(p.x.Num(), nx),
+					),
+					prime,
+				),
+				p.y.Num(),
+			),
+			prime,
+		)
+
+		nxe, err := NewFieldElement(nx, prime)
 		if err != nil {
 			return nil, err
 		}
 
-		x1, err := NewFieldElement(big.NewInt(2), p.x.Prime())
+		nye, err := NewFieldElement(ny, prime)
 		if err != nil {
 			return nil, err
 		}
 
-		x2, err := x1.Mul(p.x)
-		if err != nil {
-			return nil, err
-		}
-
-		nx, err := s2.Sub(x2)
-		if err != nil {
-			return nil, err
-		}
-
-		y1, err := p.x.Sub(nx)
-		if err != nil {
-			return nil, err
-		}
-
-		y2, err := s.Mul(y1)
-		if err != nil {
-			return nil, err
-		}
-
-		ny, err := y2.Sub(p.y)
-		if err != nil {
-			return nil, err
-		}
-
-		return NewPoint(nx, ny, p.a, p.b)
+		return NewPoint(nxe, nye, p.a, p.b)
 	}
 
 	return nil, fmt.Errorf("unhandled case, (%s, %s) + (%s, %s)", p.x, p.y, other.X(), other.Y())
