@@ -5,39 +5,6 @@ import (
 	"math/big"
 )
 
-var (
-	A = 0
-	B = 7
-	N *big.Int
-	G Point
-)
-
-func init() {
-	bigGx, _ := new(big.Int).SetString("79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798", 16)
-	bigGy, _ := new(big.Int).SetString("483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8", 16)
-
-	gx, err := NewS256FieldElement(bigGx)
-	if err != nil {
-		panic(err)
-	}
-
-	gy, err := NewS256FieldElement(bigGy)
-	if err != nil {
-		panic(err)
-	}
-
-	g, err := NewS256Point(gx, gy)
-	if err != nil {
-		panic(err)
-	}
-
-	G = g
-
-	n, _ := new(big.Int).SetString("fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141", 16)
-
-	N = n
-}
-
 // 타원곡선의 점 인터페이스
 type Point interface {
 	fmt.Stringer
@@ -376,54 +343,4 @@ func (p s256Point) Verify(z *big.Int, sig Signature) (bool, error) {
 	}
 
 	return x.X().Num().Cmp(sig.R()) == 0, nil // x의 x좌표가 r과 같은지 확인
-}
-
-// 무한원점인지 확인하는 함수
-func isInfinity(x, y FieldElement) bool {
-	return x == nil && y == nil
-}
-
-// 타원곡선 위에 있는지 확인하는 함수
-func isOnCurve(x, y, a, b FieldElement) bool {
-	left, err := y.Pow(big.NewInt(2))
-	if err != nil {
-		return false
-	}
-
-	r1, err := x.Pow(big.NewInt(3))
-	if err != nil {
-		return false
-	}
-
-	r2, err := a.Mul(x)
-	if err != nil {
-		return false
-	}
-
-	r3, err := r1.Add(r2)
-	if err != nil {
-		return false
-	}
-
-	right, err := r3.Add(b)
-	if err != nil {
-		return false
-	}
-
-	return left.Equal(right)
-}
-
-// 두 점이 서로 역원인지 확인하는 함수
-func areInverse(x1, x2, y1, y2 FieldElement) bool {
-	return x1.Equal(x2) && y1.NotEqual(y2)
-}
-
-// 두 타원곡선이 같은지 확인하는 함수
-func sameCurve(a1, b1, a2, b2 FieldElement) bool {
-	return a1.Equal(a2) && b1.Equal(b2)
-}
-
-// 두 점이 같은지 확인하는 함수
-func samePoint(x1, y1, x2, y2 FieldElement) bool {
-	return x1.Equal(x2) && y1.Equal(y2)
 }

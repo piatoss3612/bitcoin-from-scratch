@@ -135,13 +135,6 @@ func pow(num, exp, mod *big.Int) *big.Int {
 	return big.NewInt(0).Mod(big.NewInt(0).Mul(big.NewInt(0).Mul(temp, temp), num), mod)
 }
 
-// 2^256 - 2^32 - 977
-var P = big.NewInt(0).Sub(
-	big.NewInt(0).Sub(
-		big.NewInt(0).Exp(big.NewInt(2), big.NewInt(256), nil),
-		big.NewInt(0).Exp(big.NewInt(2), big.NewInt(32), nil)),
-	big.NewInt(977))
-
 // secp256k1 유한체의 원소 구조체
 type s256FieldElement struct {
 	fieldElement
