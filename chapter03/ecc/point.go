@@ -5,6 +5,8 @@ import (
 	"math/big"
 )
 
+type PointGenerator func(x, y, a, b FieldElement) (Point, error)
+
 // 타원곡선의 점 구조체
 type point struct {
 	x, y, a, b FieldElement
@@ -57,15 +59,18 @@ func (p point) String() string {
 
 // 두 타원곡선의 점이 같은지 확인하는 함수
 func (p point) Equal(other Point) bool {
-	// 두 점의 좌표가 같고 같은 타원곡선 위에 있는지 확인
-	return samePoint(p.x, p.y, other.X(), other.Y()) &&
-		sameCurve(p.a, p.b, other.A(), other.B())
+	return p.equal(other)
 }
 
 // 두 타원곡선의 점이 다른지 확인하는 함수
 func (p point) NotEqual(other Point) bool {
-	return !(samePoint(p.x, p.y, other.X(), other.Y()) &&
-		sameCurve(p.a, p.b, other.A(), other.B()))
+	return !p.equal(other)
+}
+
+// 두 타원곡선의 점이 같은지 확인하는 내부 함수
+func (p point) equal(other Point) bool {
+	return samePoint(p.x, p.y, other.X(), other.Y()) &&
+		sameCurve(p.a, p.b, other.A(), other.B())
 }
 
 // 두 타원곡선의 점을 더하는 함수
@@ -95,141 +100,151 @@ func (p point) Add(other Point) (Point, error) {
 	/* case2: 두 점이 서로 다른 경우 */
 
 	if p.x.NotEqual(other.X()) {
-		// p와 other를 지나는 직선의 기울기 구하기
-		prime := p.x.Prime()
-
-		// s = (other.y - p.y) * (other.x - p.x)^-1 % prime
-		s := big.NewInt(0).Mod(
-			// (other.y - p.y) * (other.x - p.x)^-1
-			big.NewInt(0).Mul(
-				// (other.y - p.y) % prime
-				big.NewInt(0).Mod(big.NewInt(0).Sub(other.Y().Num(), p.y.Num()), prime),
-				// * (other.x - p.x)^-1 % prime
-				big.NewInt(0).ModInverse(big.NewInt(0).Sub(other.X().Num(), p.x.Num()), prime),
-			),
-			prime,
-		)
-
-		// p와 other를 지나는 직선이 타원곡선과 만나는 다른 한 점 q의 좌표 구하기
-
-		// nx = s^2 - p.x - other.x % prime
-		nx := big.NewInt(0).Mod(
-			big.NewInt(0).Sub(
-				big.NewInt(0).Sub(
-					big.NewInt(0).Exp(s, big.NewInt(2), nil),
-					p.x.Num(),
-				),
-				other.X().Num(),
-			),
-			prime,
-		)
-
-		// ny = (s * (p.x - nx) - p.y) % prime
-		ny := big.NewInt(0).Mod(
-			big.NewInt(0).Sub(
-				big.NewInt(0).Mod(
-					big.NewInt(0).Mul(
-						s,
-						big.NewInt(0).Sub(p.x.Num(), nx),
-					),
-					prime,
-				),
-				p.y.Num(),
-			),
-			prime,
-		)
-
-		nxe, err := NewFieldElement(nx, prime)
-		if err != nil {
-			return nil, err
-		}
-
-		nye, err := NewFieldElement(ny, prime)
-		if err != nil {
-			return nil, err
-		}
-
-		return NewPoint(nxe, nye, p.a, p.b)
+		return p.addDifferentPoint(other, NewPoint)
 	}
 
 	/* case3: 두 점이 같은 경우 */
 
 	// p와 other가 같은 점인지 확인
 	if samePoint(p.x, p.y, other.X(), other.Y()) {
-		// case 2-1 예외 처리: 접선이 x축에 수직인 경우, 무한원점을 반환
-		if p.y.Num().Cmp(big.NewInt(0)) == 0 {
-			return NewPoint(nil, nil, p.a, p.b)
-		}
-		// 접선의 기울기 구하기
-		prime := p.x.Prime()
-
-		// s = (3 * p.x^2 + p.a) * (2 * p.y)^-1 % prime
-		s := big.NewInt(0).Mod(
-			big.NewInt(0).Mul(
-				big.NewInt(0).Add(
-					big.NewInt(0).Mul(
-						big.NewInt(3),
-						big.NewInt(0).Exp(p.x.Num(), big.NewInt(2), prime),
-					),
-					p.a.Num(),
-				),
-				big.NewInt(0).ModInverse(
-					big.NewInt(0).Mul(
-						big.NewInt(2),
-						p.y.Num(),
-					),
-					prime,
-				),
-			),
-			prime,
-		)
-
-		// 접선과 타원곡선의 교점 q의 좌표 구하기
-
-		// nx = (s^2 - 2 * p.x) % prime
-		nx := big.NewInt(0).Mod(
-			big.NewInt(0).Sub(
-				big.NewInt(0).Exp(s, big.NewInt(2), prime),
-				big.NewInt(0).Mod(
-					big.NewInt(0).Mul(
-						big.NewInt(2),
-						p.x.Num(),
-					),
-					prime,
-				),
-			),
-			prime,
-		)
-
-		// ny = (s * (p.x - nx) - p.y) % prime
-		ny := big.NewInt(0).Mod(
-			big.NewInt(0).Sub(
-				big.NewInt(0).Mod(
-					big.NewInt(0).Mul(
-						s,
-						big.NewInt(0).Sub(p.x.Num(), nx),
-					),
-					prime,
-				),
-				p.y.Num(),
-			),
-			prime,
-		)
-
-		nxe, err := NewFieldElement(nx, prime)
-		if err != nil {
-			return nil, err
-		}
-
-		nye, err := NewFieldElement(ny, prime)
-		if err != nil {
-			return nil, err
-		}
-
-		return NewPoint(nxe, nye, p.a, p.b)
+		return p.addSamePoint(other, NewPoint)
 	}
 
 	return nil, fmt.Errorf("unhandled case, (%s, %s) + (%s, %s)", p.x, p.y, other.X(), other.Y())
+}
+
+// 서로 다른 두 타원곡선의 점을 더하는 내부 함수
+func (p point) addDifferentPoint(other Point, gen PointGenerator) (Point, error) {
+	// p와 other를 지나는 직선의 기울기 구하기
+	prime := p.x.Prime()
+
+	// s = (other.y - p.y) * (other.x - p.x)^-1 % prime
+	s := big.NewInt(0).Mod(
+		// (other.y - p.y) * (other.x - p.x)^-1
+		big.NewInt(0).Mul(
+			// (other.y - p.y) % prime
+			big.NewInt(0).Mod(big.NewInt(0).Sub(other.Y().Num(), p.y.Num()), prime),
+			// * (other.x - p.x)^-1 % prime
+			big.NewInt(0).ModInverse(big.NewInt(0).Sub(other.X().Num(), p.x.Num()), prime),
+		),
+		prime,
+	)
+
+	// p와 other를 지나는 직선이 타원곡선과 만나는 다른 한 점 q의 좌표 구하기
+
+	// nx = s^2 - p.x - other.x % prime
+	nx := big.NewInt(0).Mod(
+		big.NewInt(0).Sub(
+			big.NewInt(0).Sub(
+				big.NewInt(0).Exp(s, big.NewInt(2), nil),
+				p.x.Num(),
+			),
+			other.X().Num(),
+		),
+		prime,
+	)
+
+	// ny = (s * (p.x - nx) - p.y) % prime
+	ny := big.NewInt(0).Mod(
+		big.NewInt(0).Sub(
+			big.NewInt(0).Mod(
+				big.NewInt(0).Mul(
+					s,
+					big.NewInt(0).Sub(p.x.Num(), nx),
+				),
+				prime,
+			),
+			p.y.Num(),
+		),
+		prime,
+	)
+
+	nxe, err := NewFieldElement(nx, prime)
+	if err != nil {
+		return nil, err
+	}
+
+	nye, err := NewFieldElement(ny, prime)
+	if err != nil {
+		return nil, err
+	}
+
+	return gen(nxe, nye, p.a, p.b)
+}
+
+// 동일한 타원곡선의 점을 더하는 내부 함수
+func (p point) addSamePoint(other Point, gen PointGenerator) (Point, error) {
+	// case 2-1 예외 처리: 접선이 x축에 수직인 경우, 무한원점을 반환
+	if p.y.Num().Cmp(big.NewInt(0)) == 0 {
+		return nil, nil
+	}
+	// 접선의 기울기 구하기
+	prime := p.x.Prime()
+
+	// s = (3 * p.x^2 + p.a) * (2 * p.y)^-1 % prime
+	s := big.NewInt(0).Mod(
+		big.NewInt(0).Mul(
+			big.NewInt(0).Add(
+				big.NewInt(0).Mul(
+					big.NewInt(3),
+					big.NewInt(0).Exp(p.x.Num(), big.NewInt(2), prime),
+				),
+				p.a.Num(),
+			),
+			big.NewInt(0).ModInverse(
+				big.NewInt(0).Mul(
+					big.NewInt(2),
+					p.y.Num(),
+				),
+				prime,
+			),
+		),
+		prime,
+	)
+
+	// 접선과 타원곡선의 교점 q의 좌표 구하기
+
+	// nx = (s^2 - 2 * p.x) % prime
+	nx := big.NewInt(0).Mod(
+		big.NewInt(0).Sub(
+			big.NewInt(0).Exp(s, big.NewInt(2), prime),
+			big.NewInt(0).Mod(
+				big.NewInt(0).Mul(
+					big.NewInt(2),
+					p.x.Num(),
+				),
+				prime,
+			),
+		),
+		prime,
+	)
+
+	// ny = (s * (p.x - nx) - p.y) % prime
+	ny := big.NewInt(0).Mod(
+		big.NewInt(0).Sub(
+			big.NewInt(0).Mod(
+				big.NewInt(0).Mul(
+					s,
+					big.NewInt(0).Sub(p.x.Num(), nx),
+				),
+				prime,
+			),
+			p.y.Num(),
+		),
+		prime,
+	)
+
+	nxe, err := NewFieldElement(nx, prime)
+	if err != nil {
+		return nil, err
+	}
+
+	nye, err := NewFieldElement(ny, prime)
+	if err != nil {
+		return nil, err
+	}
+
+	return gen(nxe, nye, p.a, p.b)
 }
 
 // 타원곡선 점의 스칼라 곱셈 함수
@@ -244,13 +259,7 @@ func (p point) Mul(coefficient *big.Int) (Point, error) {
 	return p.mul(coefficient, current, result)
 }
 
-// 타원곡선 점의 서명 검증 함수
-func (p point) Verify(z *big.Int, sig Signature) (bool, error) {
-	// TODO: implement verify
-	return false, nil
-}
-
-// 타원곡선 점의 스칼라 곱셈 함수
+// 타원곡선 점의 스칼라 곱셈 내부 함수
 func (p point) mul(coefficient *big.Int, current, result Point) (Point, error) {
 	coef := coefficient // 계수
 
@@ -274,6 +283,12 @@ func (p point) mul(coefficient *big.Int, current, result Point) (Point, error) {
 	}
 
 	return result, nil
+}
+
+// 타원곡선 점의 서명 검증 함수
+func (p point) Verify(z *big.Int, sig Signature) (bool, error) {
+	// TODO: implement verify
+	return false, nil
 }
 
 // secp256k1 타원곡선의 점 구조체
@@ -302,6 +317,49 @@ func NewS256Point(x, y FieldElement) (Point, error) {
 	}
 
 	return &s256Point{point{x: x, y: y, a: a, b: b}}, nil
+}
+
+func (p s256Point) Add(other Point) (Point, error) {
+	// 같은 타원곡선 위에 있는지 확인
+	if !sameCurve(p.a, p.b, other.A(), other.B()) {
+		return nil, fmt.Errorf("points %s and %s are not on the same curve", p, other)
+	}
+
+	/* case1: 두 점이 x축에 수직인 직선 위에 있는 경우 */
+
+	// p가 무한원점인지 확인
+	if isInfinity(p.x, p.y) {
+		return other, nil
+	}
+
+	// other가 무한원점인지 확인
+	if isInfinity(other.X(), other.Y()) {
+		return &p, nil
+	}
+
+	// 한 점에 그의 역원을 더하는 경우, 무한원점을 반환
+	if areInverse(p.x, other.X(), p.y, other.Y()) {
+		return NewS256Point(nil, nil)
+	}
+
+	gen := func(x, y, _, _ FieldElement) (Point, error) {
+		return NewS256Point(x, y)
+	}
+
+	/* case2: 두 점이 서로 다른 경우 */
+
+	if p.x.NotEqual(other.X()) {
+		return p.addDifferentPoint(other, gen)
+	}
+
+	/* case3: 두 점이 같은 경우 */
+
+	// p와 other가 같은 점인지 확인
+	if samePoint(p.x, p.y, other.X(), other.Y()) {
+		return p.addSamePoint(other, gen)
+	}
+
+	return nil, fmt.Errorf("unhandled case, (%s, %s) + (%s, %s)", p.x, p.y, other.X(), other.Y())
 }
 
 // secp256k1 타원곡선의 점의 스칼라 곱셈 함수

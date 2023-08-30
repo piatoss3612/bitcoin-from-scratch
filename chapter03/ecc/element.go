@@ -152,7 +152,7 @@ func NewS256FieldElement(num *big.Int) (FieldElement, error) {
 	}
 
 	// 유한체의 원소가 유한체의 크기보다 크거나 같은 경우 에러
-	if num.Cmp(P) != -1 {
+	if !inRange(num, P) {
 		return nil, fmt.Errorf("num %s not in field range 0 to %s", num, P.Sub(P, big.NewInt(1)))
 	}
 
