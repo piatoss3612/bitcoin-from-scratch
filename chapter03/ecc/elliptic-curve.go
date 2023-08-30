@@ -38,6 +38,7 @@ func init() {
 	N = n
 }
 
+// 타원곡선의 점 인터페이스
 type Point interface {
 	fmt.Stringer
 	X() FieldElement
@@ -51,6 +52,7 @@ type Point interface {
 	Verify(z *big.Int, sig Signature) (bool, error)
 }
 
+// 타원곡선의 점 구조체
 type point struct {
 	x, y, a, b FieldElement
 }
@@ -70,18 +72,22 @@ func NewPoint(x, y, a, b FieldElement) (Point, error) {
 	return &point{x: x, y: y, a: a, b: b}, nil
 }
 
+// 타원곡선의 점의 x좌표를 반환하는 함수
 func (p point) X() FieldElement {
 	return p.x
 }
 
+// 타원곡선의 점의 y좌표를 반환하는 함수
 func (p point) Y() FieldElement {
 	return p.y
 }
 
+// 타원곡선의 a 계수를 반환하는 함수
 func (p point) A() FieldElement {
 	return p.a
 }
 
+// 타원곡선의 b 계수를 반환하는 함수
 func (p point) B() FieldElement {
 	return p.b
 }
@@ -273,6 +279,7 @@ func (p point) Add(other Point) (Point, error) {
 	return nil, fmt.Errorf("unhandled case, (%s, %s) + (%s, %s)", p.x, p.y, other.X(), other.Y())
 }
 
+// 타원곡선 점의 스칼라 곱셈 함수
 func (p point) Mul(coefficient *big.Int) (Point, error) {
 	coef := coefficient  // 계수
 	current := Point(&p) // 시작점으로 초기화
@@ -302,15 +309,18 @@ func (p point) Mul(coefficient *big.Int) (Point, error) {
 	return result, nil
 }
 
+// 타원곡선 점의 서명 검증 함수
 func (p point) Verify(z *big.Int, sig Signature) (bool, error) {
 	// TODO: implement verify
 	return false, nil
 }
 
+// secp256k1 타원곡선의 점 구조체
 type s256Point struct {
 	point
 }
 
+// secp256k1 타원곡선의 점 생성 함수
 func NewS256Point(x, y FieldElement) (Point, error) {
 	a, err := NewS256FieldElement(big.NewInt(int64(A)))
 	if err != nil {
@@ -333,35 +343,39 @@ func NewS256Point(x, y FieldElement) (Point, error) {
 	return &s256Point{point{x: x, y: y, a: a, b: b}}, nil
 }
 
+// secp256k1 타원곡선의 점의 스칼라 곱셈 함수
 func (p s256Point) Mul(coefficient *big.Int) (Point, error) {
+	// 계수가 N보다 큰 경우, 계수를 N으로 나눈 나머지를 계수로 사용
+	// 왜? N*G = O, 무한원점 이기 때문에 N보다 큰 계수는 N으로 나눈 나머지를 계수로 사용해도 결과는 같음
 	coef := new(big.Int).Mod(coefficient, N)
 
 	return p.point.Mul(coef)
 }
 
+// secp256k1 타원곡선의 점의 서명 검증 함수
 func (p s256Point) Verify(z *big.Int, sig Signature) (bool, error) {
-	sInv := big.NewInt(0).ModInverse(sig.S(), N)
+	sInv := big.NewInt(0).ModInverse(sig.S(), N) // s의 역원
 
-	u := big.NewInt(0).Mod(big.NewInt(0).Mul(z, sInv), N)
+	u := big.NewInt(0).Mod(big.NewInt(0).Mul(z, sInv), N) // u = z/s
 
-	v := big.NewInt(0).Mod(big.NewInt(0).Mul(sig.R(), sInv), N)
+	v := big.NewInt(0).Mod(big.NewInt(0).Mul(sig.R(), sInv), N) // v = r/s
 
-	uG, err := G.Mul(u)
+	uG, err := G.Mul(u) // uG
 	if err != nil {
 		return false, err
 	}
 
-	vP, err := p.Mul(v)
+	vP, err := p.Mul(v) // vP
 	if err != nil {
 		return false, err
 	}
 
-	x, err := uG.Add(vP)
+	x, err := uG.Add(vP) // uG + vP
 	if err != nil {
 		return false, err
 	}
 
-	return x.X().Num().Cmp(sig.R()) == 0, nil
+	return x.X().Num().Cmp(sig.R()) == 0, nil // x의 x좌표가 r과 같은지 확인
 }
 
 // 무한원점인지 확인하는 함수

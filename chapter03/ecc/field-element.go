@@ -5,6 +5,7 @@ import (
 	"math/big"
 )
 
+// 유한체의 원소 인터페이스
 type FieldElement interface {
 	fmt.Stringer
 	Num() *big.Int
@@ -33,10 +34,12 @@ func NewFieldElement(num, prime *big.Int) (FieldElement, error) {
 	return &fieldElement{num, prime}, nil
 }
 
+// 유한체의 원소값을 반환하는 함수
 func (f fieldElement) Num() *big.Int {
 	return f.num
 }
 
+// 유한체의 위수를 반환하는 함수
 func (f fieldElement) Prime() *big.Int {
 	return f.prime
 }
@@ -139,10 +142,12 @@ var P = big.NewInt(0).Sub(
 		big.NewInt(0).Exp(big.NewInt(2), big.NewInt(32), nil)),
 	big.NewInt(977))
 
+// secp256k1 유한체의 원소 구조체
 type s256FieldElement struct {
 	fieldElement
 }
 
+// secp256k1 유한체의 원소를 생성하는 함수
 func NewS256FieldElement(num *big.Int) (FieldElement, error) {
 	if num == nil {
 		return nil, fmt.Errorf("num cannot be nil")
