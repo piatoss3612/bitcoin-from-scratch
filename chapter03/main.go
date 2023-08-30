@@ -23,12 +23,12 @@ func sigTest1() {
 
 	sig := ecc.NewS256Signature(r, s)
 
-	px, err := ecc.NewS256Field(bigPx)
+	px, err := ecc.NewS256FieldElement(bigPx)
 	if err != nil {
 		panic(err)
 	}
 
-	py, err := ecc.NewS256Field(bigPy)
+	py, err := ecc.NewS256FieldElement(bigPy)
 	if err != nil {
 		panic(err)
 	}

@@ -16,12 +16,12 @@ func init() {
 	bigGx, _ := new(big.Int).SetString("79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798", 16)
 	bigGy, _ := new(big.Int).SetString("483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8", 16)
 
-	gx, err := NewS256Field(bigGx)
+	gx, err := NewS256FieldElement(bigGx)
 	if err != nil {
 		panic(err)
 	}
 
-	gy, err := NewS256Field(bigGy)
+	gy, err := NewS256FieldElement(bigGy)
 	if err != nil {
 		panic(err)
 	}
@@ -312,12 +312,12 @@ type s256Point struct {
 }
 
 func NewS256Point(x, y FieldElement) (Point, error) {
-	a, err := NewS256Field(big.NewInt(int64(A)))
+	a, err := NewS256FieldElement(big.NewInt(int64(A)))
 	if err != nil {
 		return nil, err
 	}
 
-	b, err := NewS256Field(big.NewInt(int64(B)))
+	b, err := NewS256FieldElement(big.NewInt(int64(B)))
 	if err != nil {
 		return nil, err
 	}

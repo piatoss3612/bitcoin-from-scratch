@@ -139,11 +139,11 @@ var P = big.NewInt(0).Sub(
 		big.NewInt(0).Exp(big.NewInt(2), big.NewInt(32), nil)),
 	big.NewInt(977))
 
-type s256Field struct {
+type s256FieldElement struct {
 	fieldElement
 }
 
-func NewS256Field(num *big.Int) (FieldElement, error) {
+func NewS256FieldElement(num *big.Int) (FieldElement, error) {
 	if num == nil {
 		return nil, fmt.Errorf("num cannot be nil")
 	}
@@ -155,5 +155,5 @@ func NewS256Field(num *big.Int) (FieldElement, error) {
 
 	f := fieldElement{num, P}
 
-	return &s256Field{f}, nil
+	return &s256FieldElement{f}, nil
 }
