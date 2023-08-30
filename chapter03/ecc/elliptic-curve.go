@@ -48,7 +48,7 @@ type Point interface {
 	NotEqual(other Point) bool
 	Add(other Point) (Point, error)
 	Mul(coefficient *big.Int) (Point, error)
-	Verify(z FieldElement, sig Signature) (bool, error)
+	Verify(z *big.Int, sig Signature) (bool, error)
 }
 
 type point struct {
@@ -302,7 +302,7 @@ func (p point) Mul(coefficient *big.Int) (Point, error) {
 	return result, nil
 }
 
-func (p point) Verify(z FieldElement, sig Signature) (bool, error) {
+func (p point) Verify(z *big.Int, sig Signature) (bool, error) {
 	// TODO: implement verify
 	return false, nil
 }
@@ -339,28 +339,19 @@ func (p s256Point) Mul(coefficient *big.Int) (Point, error) {
 	return p.point.Mul(coef)
 }
 
-func (p s256Point) Verify(z FieldElement, sig Signature) (bool, error) {
-	sInv, err := sig.S().Pow(big.NewInt(0).Sub(N, big.NewInt(2)))
+func (p s256Point) Verify(z *big.Int, sig Signature) (bool, error) {
+	sInv := big.NewInt(0).ModInverse(sig.S(), N)
+
+	u := big.NewInt(0).Mod(big.NewInt(0).Mul(z, sInv), N)
+
+	v := big.NewInt(0).Mod(big.NewInt(0).Mul(sig.R(), sInv), N)
+
+	uG, err := G.Mul(u)
 	if err != nil {
 		return false, err
 	}
 
-	u, err := z.Mul(sInv)
-	if err != nil {
-		return false, err
-	}
-
-	v, err := sig.R().Mul(sInv)
-	if err != nil {
-		return false, err
-	}
-
-	uG, err := G.Mul(u.Num())
-	if err != nil {
-		return false, err
-	}
-
-	vP, err := p.Mul(v.Num())
+	vP, err := p.Mul(v)
 	if err != nil {
 		return false, err
 	}
@@ -370,7 +361,7 @@ func (p s256Point) Verify(z FieldElement, sig Signature) (bool, error) {
 		return false, err
 	}
 
-	return x.X().Num().Cmp(sig.R().Num()) == 0, nil
+	return x.X().Num().Cmp(sig.R()) == 0, nil
 }
 
 // 무한원점인지 확인하는 함수

@@ -11,107 +11,72 @@ import (
 
 type Signature interface {
 	fmt.Stringer
-	R() FieldElement
-	S() FieldElement
+	R() *big.Int
+	S() *big.Int
 }
 
 type s256Signature struct {
-	r FieldElement
-	s FieldElement
+	r *big.Int
+	s *big.Int
 }
 
-func NewS256Signature(r, s FieldElement) Signature {
+func NewS256Signature(r, s *big.Int) Signature {
 	return &s256Signature{r, s}
 }
 
-func (sig s256Signature) R() FieldElement {
+func (sig s256Signature) R() *big.Int {
 	return sig.r
 }
 
-func (sig s256Signature) S() FieldElement {
+func (sig s256Signature) S() *big.Int {
 	return sig.s
 }
 
 func (sig s256Signature) String() string {
-	return fmt.Sprintf("Signature(%s, %s)", sig.r.Num().Text(16), sig.s.Num().Text(16))
+	return fmt.Sprintf("Signature(%s, %s)", sig.r.Text(16), sig.s.Text(16))
 }
 
 type PrivateKey interface {
 	fmt.Stringer
-	Sign(z FieldElement) (Signature, error)
+	Sign(z *big.Int) (Signature, error)
 }
 
 type s256PrivateKey struct {
-	secret FieldElement
+	secret *big.Int
 	point  Point
 }
 
-func NewS256PrivateKey(secret FieldElement) (PrivateKey, error) {
-	point, err := G.Mul(secret.Num())
+func NewS256PrivateKey(secret *big.Int) (PrivateKey, error) {
+	point, err := G.Mul(secret)
 	if err != nil {
 		return nil, err
 	}
 	return &s256PrivateKey{secret, point}, nil
 }
 
-func (pvk s256PrivateKey) Sign(z FieldElement) (Signature, error) {
-	/*
-		bigK, err := rand.Int(rand.Reader, N)
-		if err != nil {
-			return nil, err
-		}
-	*/
-	bigK, err := pvk.deterministicK(z)
+func (pvk s256PrivateKey) Sign(z *big.Int) (Signature, error) {
+	k, err := pvk.deterministicK(z)
 	if err != nil {
 		return nil, err
 	}
 
-	fmt.Println(bigK)
-
-	kG, err := G.Mul(bigK)
+	kG, err := G.Mul(k)
 	if err != nil {
 		return nil, err
 	}
 
-	rx := kG.X()
+	r := kG.X().Num()
 
-	r, err := NewFieldElement(rx.Num(), N)
-	if err != nil {
-		return nil, err
-	}
+	kInv := big.NewInt(0).ModInverse(k, N)
 
-	k, err := NewFieldElement(bigK, N)
-	if err != nil {
-		return nil, err
-	}
+	secretR := big.NewInt(0).Mod(big.NewInt(0).Mul(pvk.secret, r), N)
 
-	kInv, err := k.Pow(big.NewInt(0).Sub(N, big.NewInt(2)))
-	if err != nil {
-		return nil, err
-	}
+	zPlusSecretR := big.NewInt(0).Mod(big.NewInt(0).Add(z, secretR), N)
 
-	secretR, err := r.Mul(pvk.secret)
-	if err != nil {
-		return nil, err
-	}
+	s := big.NewInt(0).Mod(big.NewInt(0).Mul(kInv, zPlusSecretR), N)
 
-	zPlusSecretR, err := z.Add(secretR)
-	if err != nil {
-		return nil, err
-	}
-
-	s, err := zPlusSecretR.Mul(kInv)
-	if err != nil {
-		return nil, err
-	}
-
-	if s.Num().Cmp(big.NewInt(0).Div(N, big.NewInt(2))) == 1 {
-		nsNum := big.NewInt(0).Sub(N, s.Num())
-		ns, err := NewFieldElement(nsNum, N)
-		if err != nil {
-			return nil, err
-		}
-
+	if s.Cmp(big.NewInt(0).Div(N, big.NewInt(2))) == 1 {
+		ns := big.NewInt(0).Sub(N, s)
 		return NewS256Signature(r, ns), nil
 	}
 
@@ -119,22 +84,20 @@ func (pvk s256PrivateKey) Sign(z FieldElement) (Signature, error) {
 }
 
 func (pvk s256PrivateKey) String() string {
-	return fmt.Sprintf("PrivateKey(%s)", pvk.secret.Num().Text(16))
+	return fmt.Sprintf("PrivateKey(%s)", pvk.secret.Text(16))
 }
 
 // reference: https://github.com/codahale/rfc6979/blob/master/rfc6979.go
-func (pvk s256PrivateKey) deterministicK(z FieldElement) (*big.Int, error) {
+func (pvk s256PrivateKey) deterministicK(z *big.Int) (*big.Int, error) {
 	k := bytes.Repeat([]byte{0x00}, 32)
 	v := bytes.Repeat([]byte{0x01}, 32)
 
-	zNum := z.Num()
-
-	if zNum.Cmp(N) == 1 {
-		zNum = big.NewInt(0).Sub(zNum, N)
+	if z.Cmp(N) == 1 {
+		z.Sub(z, N)
 	}
 
-	zBytes := zNum.Bytes()
-	secreteBytes := pvk.secret.Num().Bytes()
+	zBytes := z.Bytes()
+	secreteBytes := pvk.secret.Bytes()
 
 	alg := sha256.New
 
