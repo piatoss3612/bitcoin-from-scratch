@@ -64,13 +64,9 @@ func (pvk s256PrivateKey) Sign(z *big.Int) (Signature, error) {
 
 	r := kG.X().Num() // kG의 x좌표를 r값으로 사용
 
-	kInv := big.NewInt(0).ModInverse(k, N) // k의 역원
+	kInv := invBN(k, N) // k의 역원
 
-	secretR := big.NewInt(0).Mod(big.NewInt(0).Mul(pvk.secret, r), N) // 개인키와 r값의 곱을 계산
-
-	zPlusSecretR := big.NewInt(0).Mod(big.NewInt(0).Add(z, secretR), N) // z + secretR을 계산
-
-	s := big.NewInt(0).Mod(big.NewInt(0).Mul(kInv, zPlusSecretR), N) // kInv * (z + secretR)을 계산
+	s := mulBN(addBN(z, mulBN(r, pvk.secret, N), N), kInv, N) // s = (z + r * pvk.secret) * k^-1 mod N
 
 	// s가 N/2보다 큰 경우, s = N - s로 사용
 	if s.Cmp(big.NewInt(0).Div(N, big.NewInt(2))) == 1 {

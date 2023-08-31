@@ -5,6 +5,7 @@ import (
 	"math/big"
 )
 
+// 타원곡선의 점을 생성하는 함수 타입
 type PointGenerator func(x, y, a, b FieldElement) (Point, error)
 
 // 타원곡선의 점 구조체
@@ -293,7 +294,7 @@ func (p point) Verify(z *big.Int, sig Signature) (bool, error) {
 
 // secp256k1 타원곡선의 점 구조체
 type s256Point struct {
-	point
+	point // 상위 구조체를 임베딩하여 기능 상속, 필드 재사용
 }
 
 // secp256k1 타원곡선의 점 생성 함수
@@ -319,6 +320,7 @@ func NewS256Point(x, y FieldElement) (Point, error) {
 	return &s256Point{point{x: x, y: y, a: a, b: b}}, nil
 }
 
+// secp256k1 타원곡선의 점을 더하는 PointGenerator 함수
 func (p s256Point) Add(other Point) (Point, error) {
 	// 같은 타원곡선 위에 있는지 확인
 	if !sameCurve(p.a, p.b, other.A(), other.B()) {
@@ -342,6 +344,7 @@ func (p s256Point) Add(other Point) (Point, error) {
 		return NewS256Point(nil, nil)
 	}
 
+	// secp256k1 타원곡선의 점을 생성하는 함수
 	gen := func(x, y, _, _ FieldElement) (Point, error) {
 		return NewS256Point(x, y)
 	}
@@ -379,9 +382,9 @@ func (p s256Point) Mul(coefficient *big.Int) (Point, error) {
 
 // secp256k1 타원곡선의 점의 서명 검증 함수
 func (p s256Point) Verify(z *big.Int, sig Signature) (bool, error) {
-	sInv := big.NewInt(0).ModInverse(sig.S(), N)                // s의 역원
-	u := big.NewInt(0).Mod(big.NewInt(0).Mul(z, sInv), N)       // u = z * s^-1
-	v := big.NewInt(0).Mod(big.NewInt(0).Mul(sig.R(), sInv), N) // v = r * s^-1
+	sInv := invBN(sig.S(), N)    // s^-1
+	u := mulBN(z, sInv, N)       // u = z * s^-1
+	v := mulBN(sig.R(), sInv, N) // v = r * s^-1
 
 	uG, err := G.Mul(u) // uG
 	if err != nil {
@@ -393,10 +396,12 @@ func (p s256Point) Verify(z *big.Int, sig Signature) (bool, error) {
 		return false, err
 	}
 
-	res, err := uG.Add(vP) // uG + vP
+	R, err := uG.Add(vP) // uG + vP
 	if err != nil {
 		return false, err
 	}
 
-	return res.X().Num().Cmp(sig.R()) == 0, nil // res의 x좌표가 r과 같은지 확인
+	x := R.X().Num() // res의 x좌표
+
+	return x.Cmp(sig.R()) == 0, nil // x좌표가 r과 같은지 확인
 }
