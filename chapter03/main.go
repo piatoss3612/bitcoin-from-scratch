@@ -8,8 +8,8 @@ import (
 )
 
 func main() {
-	sigTest1()
-	sigTest2()
+	//sigTest1()
+	//sigTest2()
 	sigTest3()
 }
 
@@ -83,9 +83,9 @@ func sigTest2() {
 
 func sigTest3() {
 	e := big.NewInt(12345)
-	z := new(big.Int).SetBytes(hash256.New([]byte("Programming Bitcoin!")))
+	z := hash256.New([]byte("Programming Bitcoin!"))
 
-	pvk, err := ecc.NewS256PrivateKey(e)
+	pvk, err := ecc.NewS256PrivateKey(e.Bytes())
 	if err != nil {
 		panic(err)
 	}

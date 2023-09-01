@@ -1,6 +1,23 @@
 package ecc
 
-import "math/big"
+import (
+	"math/big"
+	"unsafe"
+)
+
+// 바이트 슬라이스를 big.Int로 변환하는 함수
+func BytesToBigInt(b []byte) *big.Int {
+	return big.NewInt(0).SetBytes(b)
+}
+
+// 문자열을 바이트 슬라이스로 변환하는 함수
+func StringToBytes(s string) []byte {
+	return unsafe.Slice(unsafe.StringData(s), len(s))
+}
+
+func BytesToString(b []byte) string {
+	return unsafe.String(unsafe.SliceData(b), len(b))
+}
 
 // 두 원소값이 같은지 확인하는 함수
 func sameBN(x, y *big.Int) bool {

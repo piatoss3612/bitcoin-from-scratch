@@ -43,5 +43,5 @@ type Signature interface {
 // 개인키 인터페이스
 type PrivateKey interface {
 	fmt.Stringer
-	Sign(z *big.Int) (Signature, error)
+	Sign(z []byte) (Signature, error)
 }
