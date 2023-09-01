@@ -30,7 +30,7 @@ type Point interface {
 	NotEqual(other Point) bool
 	Add(other Point) (Point, error)
 	Mul(coefficient *big.Int) (Point, error)
-	Verify(z *big.Int, sig Signature) (bool, error)
+	Verify(z []byte, sig Signature) (bool, error)
 }
 
 // 서명 인터페이스
