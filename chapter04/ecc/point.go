@@ -292,6 +292,12 @@ func (p point) Verify(z []byte, sig Signature) (bool, error) {
 	return false, nil
 }
 
+// 타원곡선 점의 직렬화 함수
+func (p point) SEC() []byte {
+	// TODO: implement SEC
+	return nil
+}
+
 // secp256k1 타원곡선의 점 구조체
 type s256Point struct {
 	point // 상위 구조체를 임베딩하여 기능 상속, 필드 재사용
@@ -405,4 +411,9 @@ func (p s256Point) Verify(z []byte, sig Signature) (bool, error) {
 	x := R.X().Num() // res의 x좌표
 
 	return x.Cmp(sig.R()) == 0, nil // x좌표가 r과 같은지 확인
+}
+
+// secp256k1 타원곡선의 점의 직렬화 함수
+func (p s256Point) SEC() []byte {
+	return append([]byte{0x04}, append(p.x.Num().Bytes(), p.y.Num().Bytes()...)...)
 }

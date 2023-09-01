@@ -128,3 +128,8 @@ func (pvk s256PrivateKey) mac(alg func() hash.Hash, k, m, buf []byte) []byte {
 	h.Write(m)
 	return h.Sum(buf[:0])
 }
+
+// secp256k1 개인키의 점을 반환하는 함수
+func (pvk s256PrivateKey) Point() Point {
+	return pvk.point
+}

@@ -19,6 +19,21 @@ type FieldElement interface {
 	Div(other FieldElement) (FieldElement, error)
 }
 
+// 서명 검증 인터페이스
+type Verifier interface {
+	Verify(z []byte, sig Signature) (bool, error)
+}
+
+// 서명 인터페이스
+type Signer interface {
+	Sign(z []byte) (Signature, error)
+}
+
+// 직렬화 인터페이스
+type Serializer interface {
+	SEC() []byte
+}
+
 // 타원곡선의 점 인터페이스
 type Point interface {
 	fmt.Stringer
@@ -30,7 +45,8 @@ type Point interface {
 	NotEqual(other Point) bool
 	Add(other Point) (Point, error)
 	Mul(coefficient *big.Int) (Point, error)
-	Verify(z []byte, sig Signature) (bool, error)
+	Verifier
+	Serializer
 }
 
 // 서명 인터페이스
@@ -43,5 +59,6 @@ type Signature interface {
 // 개인키 인터페이스
 type PrivateKey interface {
 	fmt.Stringer
-	Sign(z []byte) (Signature, error)
+	Signer
+	Point() Point
 }
