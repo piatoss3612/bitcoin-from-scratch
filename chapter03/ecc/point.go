@@ -287,7 +287,7 @@ func (p point) mul(coefficient *big.Int, current, result Point) (Point, error) {
 }
 
 // 타원곡선 점의 서명 검증 함수
-func (p point) Verify(z *big.Int, sig Signature) (bool, error) {
+func (p point) Verify(z []byte, sig Signature) (bool, error) {
 	// TODO: implement verify
 	return false, nil
 }
@@ -381,10 +381,11 @@ func (p s256Point) Mul(coefficient *big.Int) (Point, error) {
 }
 
 // secp256k1 타원곡선의 점의 서명 검증 함수
-func (p s256Point) Verify(z *big.Int, sig Signature) (bool, error) {
-	sInv := invBN(sig.S(), N)    // s^-1
-	u := mulBN(z, sInv, N)       // u = z * s^-1
-	v := mulBN(sig.R(), sInv, N) // v = r * s^-1
+func (p s256Point) Verify(z []byte, sig Signature) (bool, error) {
+	bigZ := new(big.Int).SetBytes(z) // z를 big.Int로 변환
+	sInv := invBN(sig.S(), N)        // s^-1
+	u := mulBN(bigZ, sInv, N)        // u = z * s^-1
+	v := mulBN(sig.R(), sInv, N)     // v = r * s^-1
 
 	uG, err := G.Mul(u) // uG
 	if err != nil {

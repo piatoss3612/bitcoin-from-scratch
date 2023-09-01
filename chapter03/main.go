@@ -8,8 +8,8 @@ import (
 )
 
 func main() {
-	//sigTest1()
-	//sigTest2()
+	sigTest1()
+	sigTest2()
 	sigTest3()
 }
 
@@ -39,7 +39,7 @@ func sigTest1() {
 	}
 
 	// 서명 검증
-	ok, err := point.Verify(z, sig)
+	ok, err := point.Verify(z.Bytes(), sig)
 	if err != nil {
 		panic(err)
 	}
