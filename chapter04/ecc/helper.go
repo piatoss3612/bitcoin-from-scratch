@@ -1,10 +1,13 @@
 package ecc
 
 import (
-	"bytes"
+	"crypto/sha256"
+	"errors"
 	"math/big"
 	"strings"
 	"unsafe"
+
+	"golang.org/x/crypto/ripemd160"
 )
 
 // 바이트 슬라이스를 big.Int로 변환하는 함수
@@ -99,8 +102,71 @@ func inRange(num, prime *big.Int) bool {
 	return num.Cmp(big.NewInt(0)) != -1 && num.Cmp(prime) == -1
 }
 
-var base58Alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
+// sec 바이트 슬라이스를 타원곡선 위의 점으로 변환하는 함수
+func Parse(sec []byte) (Point, error) {
+	// prefix가 0x04인 경우, 비압축 포맷
+	if sec[0] == 0x04 {
+		x, err := NewS256FieldElement(new(big.Int).SetBytes(sec[1:33]))
+		if err != nil {
+			return nil, err
+		}
 
+		y, err := NewS256FieldElement(new(big.Int).SetBytes(sec[33:65]))
+		if err != nil {
+			return nil, err
+		}
+
+		return NewS256Point(x, y)
+	}
+
+	// prefix가 0x02 또는 0x03인 경우, 압축 포맷
+	if sec[0] == 0x02 || sec[0] == 0x03 {
+		x, err := NewS256FieldElement(new(big.Int).SetBytes(sec[1:]))
+		if err != nil {
+			return nil, err
+		}
+
+		// y^2 = x^3 + 7
+		alpha := addBN(powBN(x.Num(), big.NewInt(3), P), big.NewInt(int64(B)), P)
+		// y = sqrt(alpha)
+		beta := sqrtBN(alpha, P)
+
+		var even, odd *big.Int
+
+		// y의 LSB가 짝수인지 홀수인지 확인
+		if byte(beta.Bit(0)) == 0x00 {
+			even = beta
+			odd = subBN(P, beta, P)
+		} else {
+			odd = beta
+			even = subBN(P, beta, P)
+		}
+
+		// prefix가 0x02인 경우, y의 LSB가 짝수인 값을 사용
+		if sec[0] == 0x02 {
+			y, err := NewS256FieldElement(even)
+			if err != nil {
+				return nil, err
+			}
+
+			return NewS256Point(x, y)
+		}
+
+		// prefix가 0x03인 경우, y의 LSB가 홀수인 값을 사용
+		y, err := NewS256FieldElement(odd)
+		if err != nil {
+			return nil, err
+		}
+
+		return NewS256Point(x, y)
+	}
+
+	return nil, errors.New("invalid sec format")
+}
+
+var base58Alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz" // base58 인코딩에 사용할 문자열
+
+// 바이트 슬라이스를 base58로 인코딩하는 함수
 func EncodeBase58(s []byte) string {
 	// 앞에 0x00이 몇개 있는지 확인
 	count := 0
@@ -112,8 +178,8 @@ func EncodeBase58(s []byte) string {
 		}
 	}
 
-	n := big.NewInt(0).SetBytes(s)              // 바이트 슬라이스를 big.Int로 변환
-	prefix := bytes.Repeat([]byte{0x01}, count) // 0x00이 몇개 있는지에 따라 0x01을 count만큼 반복하여 prefix를 만듬
+	n := big.NewInt(0).SetBytes(s)       // 바이트 슬라이스를 big.Int로 변환
+	prefix := strings.Repeat("1", count) // 0x00이 몇개 있는지에 따라 0x01을 count만큼 반복하여 prefix를 만듬
 
 	result := strings.Builder{}
 
@@ -125,7 +191,7 @@ func EncodeBase58(s []byte) string {
 	}
 
 	// prefix를 붙임
-	result.WriteString(BytesToString(prefix))
+	result.WriteString(prefix)
 
 	// 문자열을 뒤집음
 	resultStrBytes := StringToBytes(result.String())
@@ -135,4 +201,31 @@ func EncodeBase58(s []byte) string {
 	}
 
 	return BytesToString(resultStrBytes)
+}
+
+func EncodeBase58Checksum(b []byte) string {
+	return EncodeBase58(append(b, hash256(b)[:4]...))
+}
+
+func hash256(b []byte) []byte {
+	h1 := sha256.New()
+	_, _ = h1.Write(b)
+	intermediateHash := h1.Sum(nil)
+	h2 := sha256.New()
+	_, _ = h2.Write(intermediateHash)
+	return h2.Sum(nil)
+}
+
+// ripemd160(sha256(s))를 구하는 함수
+func hash160(b []byte) []byte {
+	// sha256 해시값을 구함
+	h256 := sha256.New()
+	_, _ = h256.Write(b)
+	hash1 := h256.Sum(nil)
+
+	// sha256 해시값을 사용하여 ripemd160 해시값을 구함
+	ripemd160 := ripemd160.New()
+	_, _ = ripemd160.Write(hash1)
+
+	return ripemd160.Sum(nil)
 }

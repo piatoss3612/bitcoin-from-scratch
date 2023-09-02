@@ -1,7 +1,6 @@
 package ecc
 
 import (
-	"errors"
 	"fmt"
 	"math/big"
 )
@@ -299,6 +298,18 @@ func (p point) SEC(compressed bool) []byte {
 	return nil
 }
 
+// 타원곡선 점의 Hash160 함수
+func (p point) Hash160(compressed bool) []byte {
+	// TODO: implement Hash160
+	return nil
+}
+
+// 타원곡선 점의 주소 생성 함수
+func (p point) Address(compressed bool, testnet bool) string {
+	// TODO: implement Address
+	return ""
+}
+
 // secp256k1 타원곡선의 점 구조체
 type s256Point struct {
 	point // 상위 구조체를 임베딩하여 기능 상속, 필드 재사용
@@ -428,63 +439,20 @@ func (p s256Point) SEC(compressed bool) []byte {
 	return append([]byte{0x04}, append(p.x.Num().Bytes(), p.y.Num().Bytes()...)...)
 }
 
-func Parse(sec []byte) (Point, error) {
-	// prefix가 0x04인 경우, 비압축 포맷
-	if sec[0] == 0x04 {
-		x, err := NewS256FieldElement(new(big.Int).SetBytes(sec[1:33]))
-		if err != nil {
-			return nil, err
-		}
+// secp256k1 타원곡선의 점의 Hash160 함수
+func (p s256Point) Hash160(compressed bool) []byte {
+	return hash160(p.SEC(compressed))
+}
 
-		y, err := NewS256FieldElement(new(big.Int).SetBytes(sec[33:65]))
-		if err != nil {
-			return nil, err
-		}
+// secp256k1 타원곡선의 점의 주소 생성 함수
+func (p s256Point) Address(compressed bool, testnet bool) string {
+	h160 := p.Hash160(compressed) // 타원곡선 점의 Hash160
 
-		return NewS256Point(x, y)
+	if testnet {
+		h160 = append([]byte{0x6f}, h160...) // testnet 주소의 prefix는 0x6f
+	} else {
+		h160 = append([]byte{0x00}, h160...) // mainnet 주소의 prefix는 0x00
 	}
 
-	// prefix가 0x02 또는 0x03인 경우, 압축 포맷
-	if sec[0] == 0x02 || sec[0] == 0x03 {
-		x, err := NewS256FieldElement(new(big.Int).SetBytes(sec[1:]))
-		if err != nil {
-			return nil, err
-		}
-
-		// y^2 = x^3 + 7
-		alpha := addBN(powBN(x.Num(), big.NewInt(3), P), big.NewInt(int64(B)), P)
-		// y = sqrt(alpha)
-		beta := sqrtBN(alpha, P)
-
-		var even, odd *big.Int
-
-		// y의 LSB가 짝수인지 홀수인지 확인
-		if byte(beta.Bit(0)) == 0x00 {
-			even = beta
-			odd = subBN(P, beta, P)
-		} else {
-			odd = beta
-			even = subBN(P, beta, P)
-		}
-
-		// prefix가 0x02인 경우, y의 LSB가 짝수인 값을 사용
-		if sec[0] == 0x02 {
-			y, err := NewS256FieldElement(even)
-			if err != nil {
-				return nil, err
-			}
-
-			return NewS256Point(x, y)
-		}
-
-		// prefix가 0x03인 경우, y의 LSB가 홀수인 값을 사용
-		y, err := NewS256FieldElement(odd)
-		if err != nil {
-			return nil, err
-		}
-
-		return NewS256Point(x, y)
-	}
-
-	return nil, errors.New("invalid sec format")
+	return EncodeBase58Checksum(h160) // Base58Check 인코딩
 }

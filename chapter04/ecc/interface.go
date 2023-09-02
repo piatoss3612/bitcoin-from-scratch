@@ -42,6 +42,8 @@ type Point interface {
 	Add(other Point) (Point, error)
 	Mul(coefficient *big.Int) (Point, error)
 	SEC(compressed bool) []byte
+	Hash160(compressed bool) []byte
+	Address(compressed bool, testnet bool) string
 }
 
 // 서명 인터페이스
