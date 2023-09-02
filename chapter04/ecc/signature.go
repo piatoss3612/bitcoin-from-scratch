@@ -37,16 +37,8 @@ func (sig s256Signature) String() string {
 
 // secp256k1 서명을 DER 형식으로 반환하는 함수
 func (sig s256Signature) DER() []byte {
-	r := sig.r.Bytes()
-	s := sig.s.Bytes()
-
-	// r, s의 비어있는 바이트를 제거
-	r = bytes.TrimLeftFunc(r, func(r rune) bool {
-		return r == 0x00
-	})
-	s = bytes.TrimLeftFunc(s, func(r rune) bool {
-		return r == 0x00
-	})
+	r := sig.r.FillBytes(make([]byte, 32)) // r값을 32바이트로 변환
+	s := sig.s.FillBytes(make([]byte, 32)) // s값을 32바이트로 변환
 
 	// r의 첫번째 바이트가 0x80 이상이면 0x00을 추가
 	if r[0]&0x80 != 0 {

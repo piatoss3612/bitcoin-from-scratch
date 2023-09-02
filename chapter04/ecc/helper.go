@@ -54,6 +54,7 @@ func invBN(x, mod *big.Int) *big.Int {
 	return big.NewInt(0).ModInverse(x, mod)
 }
 
+// 원소값의 제곱근을 구하는 함수
 func sqrtBN(x, mod *big.Int) *big.Int {
 	return big.NewInt(0).ModSqrt(x, mod)
 }
