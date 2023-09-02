@@ -54,6 +54,7 @@ type Signature interface {
 	fmt.Stringer
 	R() *big.Int
 	S() *big.Int
+	DER() []byte
 }
 
 // 개인키 인터페이스

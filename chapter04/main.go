@@ -2,28 +2,17 @@ package main
 
 import (
 	"chapter04/ecc"
-	"encoding/hex"
 	"fmt"
 	"math/big"
 )
 
 func main() {
-	e1 := big.NewInt(5001)
-	pvk1, err := ecc.NewS256PrivateKey(e1.Bytes())
-	if err != nil {
-		panic(err)
-	}
+	r, _ := new(big.Int).SetString("37206a0610995c58074999cb9767b87af4c4978db68c06e8e6e81d282047a7c6", 16)
+	s, _ := new(big.Int).SetString("8ca63759c1157ebeaec0d03cecca119fc9a75bf8e6d0fa65c841c8e2738cdaec", 16)
 
-	fmt.Println(pvk1.Point())
+	sig := ecc.NewS256Signature(r, s)
 
-	sec := pvk1.Point().SEC(true)
+	der := sig.DER()
 
-	fmt.Println(hex.EncodeToString(sec))
-
-	parsed, err := ecc.Parse(sec)
-	if err != nil {
-		panic(err)
-	}
-
-	fmt.Println(parsed)
+	fmt.Printf("DER: %x\n", der)
 }
