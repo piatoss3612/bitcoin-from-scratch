@@ -170,3 +170,23 @@ func (pvk s256PrivateKey) mac(alg func() hash.Hash, k, m, buf []byte) []byte {
 func (pvk s256PrivateKey) Point() Point {
 	return pvk.point
 }
+
+func (pvk s256PrivateKey) WIF(compressed bool, testnet bool) string {
+	secret := pvk.secret
+
+	if len(secret) < 32 {
+		secret = append(make([]byte, 32-len(secret)), secret...)
+	}
+
+	if compressed {
+		secret = append(secret, 0x01)
+	}
+
+	if testnet {
+		secret = append([]byte{0xef}, secret...)
+	} else {
+		secret = append([]byte{0x80}, secret...)
+	}
+
+	return EncodeBase58Checksum(secret)
+}

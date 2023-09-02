@@ -59,4 +59,5 @@ type PrivateKey interface {
 	fmt.Stringer
 	Signer
 	Point() Point
+	WIF(compressed bool, testnet bool) string
 }
