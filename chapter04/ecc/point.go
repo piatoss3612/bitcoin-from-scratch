@@ -1,6 +1,7 @@
 package ecc
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 )
@@ -293,7 +294,7 @@ func (p point) Verify(z []byte, sig Signature) (bool, error) {
 }
 
 // 타원곡선 점의 직렬화 함수
-func (p point) SEC() []byte {
+func (p point) SEC(compressed bool) []byte {
 	// TODO: implement SEC
 	return nil
 }
@@ -414,6 +415,76 @@ func (p s256Point) Verify(z []byte, sig Signature) (bool, error) {
 }
 
 // secp256k1 타원곡선의 점의 직렬화 함수
-func (p s256Point) SEC() []byte {
+func (p s256Point) SEC(compressed bool) []byte {
+	if compressed {
+		// y좌표의 LSB가 0인 경우, 0x02를 prefix로 사용
+		if p.y.Num().Bit(0) == 0 {
+			return append([]byte{0x02}, p.x.Num().Bytes()...)
+		}
+		// y좌표의 LSB가 1인 경우, 0x03을 prefix로 사용
+		return append([]byte{0x03}, p.x.Num().Bytes()...)
+	}
+
 	return append([]byte{0x04}, append(p.x.Num().Bytes(), p.y.Num().Bytes()...)...)
+}
+
+func Parse(sec []byte) (Point, error) {
+	// prefix가 0x04인 경우, 비압축 포맷
+	if sec[0] == 0x04 {
+		x, err := NewS256FieldElement(new(big.Int).SetBytes(sec[1:33]))
+		if err != nil {
+			return nil, err
+		}
+
+		y, err := NewS256FieldElement(new(big.Int).SetBytes(sec[33:65]))
+		if err != nil {
+			return nil, err
+		}
+
+		return NewS256Point(x, y)
+	}
+
+	// prefix가 0x02 또는 0x03인 경우, 압축 포맷
+	if sec[0] == 0x02 || sec[0] == 0x03 {
+		x, err := NewS256FieldElement(new(big.Int).SetBytes(sec[1:]))
+		if err != nil {
+			return nil, err
+		}
+
+		// y^2 = x^3 + 7
+		alpha := addBN(powBN(x.Num(), big.NewInt(3), P), big.NewInt(int64(B)), P)
+		// y = sqrt(alpha)
+		beta := sqrtBN(alpha, P)
+
+		var even, odd *big.Int
+
+		// y의 LSB가 짝수인지 홀수인지 확인
+		if byte(beta.Bit(0)) == 0x00 {
+			even = beta
+			odd = subBN(P, beta, P)
+		} else {
+			odd = beta
+			even = subBN(P, beta, P)
+		}
+
+		// prefix가 0x02인 경우, y의 LSB가 짝수인 값을 사용
+		if sec[0] == 0x02 {
+			y, err := NewS256FieldElement(even)
+			if err != nil {
+				return nil, err
+			}
+
+			return NewS256Point(x, y)
+		}
+
+		// prefix가 0x03인 경우, y의 LSB가 홀수인 값을 사용
+		y, err := NewS256FieldElement(odd)
+		if err != nil {
+			return nil, err
+		}
+
+		return NewS256Point(x, y)
+	}
+
+	return nil, errors.New("invalid sec format")
 }

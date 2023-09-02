@@ -8,27 +8,22 @@ import (
 )
 
 func main() {
-	e1 := big.NewInt(5000)
+	e1 := big.NewInt(5001)
 	pvk1, err := ecc.NewS256PrivateKey(e1.Bytes())
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Println(hex.EncodeToString(pvk1.Point().SEC()))
+	fmt.Println(pvk1.Point())
 
-	e2 := big.NewInt(0).Exp(big.NewInt(2018), big.NewInt(5), nil)
-	pvk2, err := ecc.NewS256PrivateKey(e2.Bytes())
+	sec := pvk1.Point().SEC(true)
+
+	fmt.Println(hex.EncodeToString(sec))
+
+	parsed, err := ecc.Parse(sec)
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Println(hex.EncodeToString(pvk2.Point().SEC()))
-
-	e3, _ := big.NewInt(0).SetString("deadbeef12345", 16)
-	pvk3, err := ecc.NewS256PrivateKey(e3.Bytes())
-	if err != nil {
-		panic(err)
-	}
-
-	fmt.Println(hex.EncodeToString(pvk3.Point().SEC()))
+	fmt.Println(parsed)
 }

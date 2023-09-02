@@ -31,7 +31,7 @@ type Signer interface {
 
 // 직렬화 인터페이스
 type Serializer interface {
-	SEC() []byte
+	SEC(compressed bool) []byte
 }
 
 // 타원곡선의 점 인터페이스

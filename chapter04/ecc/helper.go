@@ -49,6 +49,10 @@ func invBN(x, mod *big.Int) *big.Int {
 	return big.NewInt(0).ModInverse(x, mod)
 }
 
+func sqrtBN(x, mod *big.Int) *big.Int {
+	return big.NewInt(0).ModSqrt(x, mod)
+}
+
 // 무한원점인지 확인하는 함수
 func isInfinity(x, y FieldElement) bool {
 	return x == nil && y == nil
