@@ -7,12 +7,11 @@ import (
 )
 
 func main() {
-	r, _ := new(big.Int).SetString("37206a0610995c58074999cb9767b87af4c4978db68c06e8e6e81d282047a7c6", 16)
-	s, _ := new(big.Int).SetString("8ca63759c1157ebeaec0d03cecca119fc9a75bf8e6d0fa65c841c8e2738cdaec", 16)
+	a, _ := big.NewInt(0).SetString("7c076ff316692a3d7eb3c3bb0f8b1488cf72e1afcd929e29307032997a838a3d", 16)
+	b, _ := big.NewInt(0).SetString("eff69ef2b1bd93a66ed5219add4fb51e11a840f404876325a1e8ffe0529a2c", 16)
+	c, _ := big.NewInt(0).SetString("c7207fee197d27c618aea621406f6bf5ef6fca38681d82b2f06fddbdce6feab6", 16)
 
-	sig := ecc.NewS256Signature(r, s)
-
-	der := sig.DER()
-
-	fmt.Printf("DER: %x\n", der)
+	fmt.Println(ecc.EncodeBase58(a.Bytes()))
+	fmt.Println(ecc.EncodeBase58(b.Bytes()))
+	fmt.Println(ecc.EncodeBase58(c.Bytes()))
 }

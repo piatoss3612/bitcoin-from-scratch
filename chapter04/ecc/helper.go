@@ -1,7 +1,9 @@
 package ecc
 
 import (
+	"bytes"
 	"math/big"
+	"strings"
 	"unsafe"
 )
 
@@ -95,4 +97,42 @@ func samePoint(x1, y1, x2, y2 FieldElement) bool {
 // num이 0보다 크거나 같고 prime보다 작은지 확인하는 함수
 func inRange(num, prime *big.Int) bool {
 	return num.Cmp(big.NewInt(0)) != -1 && num.Cmp(prime) == -1
+}
+
+var base58Alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
+
+func EncodeBase58(s []byte) string {
+	// 앞에 0x00이 몇개 있는지 확인
+	count := 0
+	for _, c := range s {
+		if c == 0x00 {
+			count++
+		} else {
+			break
+		}
+	}
+
+	n := big.NewInt(0).SetBytes(s)              // 바이트 슬라이스를 big.Int로 변환
+	prefix := bytes.Repeat([]byte{0x01}, count) // 0x00이 몇개 있는지에 따라 0x01을 count만큼 반복하여 prefix를 만듬
+
+	result := strings.Builder{}
+
+	// 58로 나눈 나머지를 base58Alphabet에서 찾아서 문자열을 만듦
+	for n.Cmp(big.NewInt(0)) == 1 {
+		mod := big.NewInt(0)
+		n.DivMod(n, big.NewInt(58), mod)
+		result.WriteByte(base58Alphabet[mod.Int64()])
+	}
+
+	// prefix를 붙임
+	result.WriteString(BytesToString(prefix))
+
+	// 문자열을 뒤집음
+	resultStrBytes := StringToBytes(result.String())
+
+	for i, j := 0, len(resultStrBytes)-1; i < j; i, j = i+1, j-1 {
+		resultStrBytes[i], resultStrBytes[j] = resultStrBytes[j], resultStrBytes[i]
+	}
+
+	return BytesToString(resultStrBytes)
 }

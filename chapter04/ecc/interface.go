@@ -29,14 +29,10 @@ type Signer interface {
 	Sign(z []byte) (Signature, error)
 }
 
-// 직렬화 인터페이스
-type Serializer interface {
-	SEC(compressed bool) []byte
-}
-
 // 타원곡선의 점 인터페이스
 type Point interface {
 	fmt.Stringer
+	Verifier
 	X() FieldElement
 	Y() FieldElement
 	A() FieldElement
@@ -45,8 +41,7 @@ type Point interface {
 	NotEqual(other Point) bool
 	Add(other Point) (Point, error)
 	Mul(coefficient *big.Int) (Point, error)
-	Verifier
-	Serializer
+	SEC(compressed bool) []byte
 }
 
 // 서명 인터페이스
