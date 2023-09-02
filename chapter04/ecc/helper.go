@@ -204,10 +204,10 @@ func EncodeBase58(s []byte) string {
 }
 
 func EncodeBase58Checksum(b []byte) string {
-	return EncodeBase58(append(b, hash256(b)[:4]...))
+	return EncodeBase58(append(b, Hash256(b)[:4]...))
 }
 
-func hash256(b []byte) []byte {
+func Hash256(b []byte) []byte {
 	h1 := sha256.New()
 	_, _ = h1.Write(b)
 	intermediateHash := h1.Sum(nil)
@@ -217,7 +217,7 @@ func hash256(b []byte) []byte {
 }
 
 // ripemd160(sha256(s))를 구하는 함수
-func hash160(b []byte) []byte {
+func Hash160(b []byte) []byte {
 	// sha256 해시값을 구함
 	h256 := sha256.New()
 	_, _ = h256.Write(b)
@@ -228,4 +228,22 @@ func hash160(b []byte) []byte {
 	_, _ = ripemd160.Write(hash1)
 
 	return ripemd160.Sum(nil)
+}
+
+func LittleEndianToBigInt(b []byte) *big.Int {
+	return BytesToBigInt(ReverseBytes(b))
+}
+
+func BigIntToLittleEndian(n *big.Int) []byte {
+	return ReverseBytes(n.Bytes())
+}
+
+func ReverseBytes(b []byte) []byte {
+	result := make([]byte, len(b))
+
+	for i := 0; i < len(b); i++ {
+		result[i] = b[len(b)-i-1]
+	}
+
+	return result
 }

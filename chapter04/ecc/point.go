@@ -441,7 +441,7 @@ func (p s256Point) SEC(compressed bool) []byte {
 
 // secp256k1 타원곡선의 점의 Hash160 함수
 func (p s256Point) Hash160(compressed bool) []byte {
-	return hash160(p.SEC(compressed))
+	return Hash160(p.SEC(compressed))
 }
 
 // secp256k1 타원곡선의 점의 주소 생성 함수
