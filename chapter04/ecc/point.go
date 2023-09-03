@@ -442,14 +442,14 @@ func (p s256Point) SEC(compressed bool) []byte {
 			p.y.Num().FillBytes(make([]byte, 32))...)...)
 }
 
-// secp256k1 타원곡선의 점의 Hash160 함수
+// secp256k1 타원곡선의 점의 SEC 형식을 160비트 해시로 변환하는 함수
 func (p s256Point) Hash160(compressed bool) []byte {
 	return Hash160(p.SEC(compressed))
 }
 
-// secp256k1 타원곡선의 점의 주소 생성 함수
+// secp256k1 타원곡선의 점을 주소로 변환하는 함수
 func (p s256Point) Address(compressed bool, testnet bool) string {
-	h160 := p.Hash160(compressed) // 타원곡선 점의 Hash160
+	h160 := p.Hash160(compressed) // 타원곡선 점의 SEC 형식을 160비트 해시로 변환
 
 	if testnet {
 		h160 = append([]byte{0x6f}, h160...) // testnet 주소의 prefix는 0x6f
@@ -457,5 +457,5 @@ func (p s256Point) Address(compressed bool, testnet bool) string {
 		h160 = append([]byte{0x00}, h160...) // mainnet 주소의 prefix는 0x00
 	}
 
-	return EncodeBase58Checksum(h160) // Base58Check 인코딩
+	return EncodeBase58Checksum(h160) // Base58Checksum 인코딩
 }

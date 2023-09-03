@@ -169,7 +169,7 @@ var base58Alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz
 
 // 바이트 슬라이스를 base58로 인코딩하는 함수
 func EncodeBase58(s []byte) string {
-	// 앞에 0x00이 몇개 있는지 확인
+	// 앞에 몇 바이트가 0x00인지 확인
 	count := 0
 	for _, c := range s {
 		if c == 0x00 {
@@ -179,12 +179,15 @@ func EncodeBase58(s []byte) string {
 		}
 	}
 
-	n := big.NewInt(0).SetBytes(s)       // 바이트 슬라이스를 big.Int로 변환
-	prefix := strings.Repeat("1", count) // 0x00이 몇개 있는지에 따라 0x01을 count만큼 반복하여 prefix를 만듬
+	n := big.NewInt(0).SetBytes(s) // 바이트 슬라이스를 big.Int로 변환
+
+	// 0x00이 몇개 있는지에 따라 0x01을 count만큼 반복하여 prefix를 만듬
+	// 이 prefix는 pay-to-pubkey-hash(P2PKH)에서 필요함 (6장에서 설명)
+	prefix := strings.Repeat("1", count)
 
 	result := strings.Builder{}
 
-	// 58로 나눈 나머지를 base58Alphabet에서 찾아서 문자열을 만듦
+	// n을 58로 나눈 나머지에 해당하는 문자를 base58Alphabet에서 찾아서 문자열을 만듦
 	for n.Cmp(big.NewInt(0)) == 1 {
 		mod := big.NewInt(0)
 		n.DivMod(n, big.NewInt(58), mod)
@@ -195,19 +198,28 @@ func EncodeBase58(s []byte) string {
 	result.WriteString(prefix)
 
 	// 문자열을 뒤집음
-	resultStrBytes := StringToBytes(result.String())
+	resultBytes := ReverseBytes(StringToBytes(result.String()))
 
-	for i, j := 0, len(resultStrBytes)-1; i < j; i, j = i+1, j-1 {
-		resultStrBytes[i], resultStrBytes[j] = resultStrBytes[j], resultStrBytes[i]
-	}
-
-	return BytesToString(resultStrBytes)
+	return BytesToString((resultBytes))
 }
 
+// 바이트 슬라이스를 뒤집는 함수
+func ReverseBytes(b []byte) []byte {
+	result := make([]byte, len(b))
+
+	for i, j := 0, len(b)-1; i < j; i, j = i+1, j-1 {
+		result[i], result[j] = b[j], b[i]
+	}
+
+	return result
+}
+
+// 바이트 슬라이스의 체크섬을 추가하여 base58로 인코딩하는 함수
 func EncodeBase58Checksum(b []byte) string {
 	return EncodeBase58(append(b, Hash256(b)[:4]...))
 }
 
+// sha256(sha256(b))를 구하는 함수
 func Hash256(b []byte) []byte {
 	h1 := sha256.New()
 	_, _ = h1.Write(b)
@@ -217,7 +229,7 @@ func Hash256(b []byte) []byte {
 	return h2.Sum(nil)
 }
 
-// ripemd160(sha256(s))를 구하는 함수
+// ripemd160(sha256(b))를 구하는 함수
 func Hash160(b []byte) []byte {
 	// sha256 해시값을 구함
 	h256 := sha256.New()
@@ -237,14 +249,4 @@ func LittleEndianToBigInt(b []byte) *big.Int {
 
 func BigIntToLittleEndian(n *big.Int) []byte {
 	return ReverseBytes(n.Bytes())
-}
-
-func ReverseBytes(b []byte) []byte {
-	result := make([]byte, len(b))
-
-	for i := 0; i < len(b); i++ {
-		result[i] = b[len(b)-i-1]
-	}
-
-	return result
 }
