@@ -9,6 +9,7 @@
 1. [유한체](#1-유한체)
 2. [타원곡선](#2-타원곡선)
 3. [타원곡선 암호](#3-타원곡선-암호)
+4. [직렬화](#4-직렬화)
 
 ## 1. 유한체
 
@@ -30,3 +31,10 @@
 |---|---|
 |Code|https://github.com/piatoss3612/bitcoin-from-scratch/tree/chapter03|
 |Blog|https://piatoss3612.tistory.com/17|
+
+## 4. 직렬화
+
+|Content|Link|
+|---|---|
+|Code|https://github.com/piatoss3612/bitcoin-from-scratch/tree/chapter04|
+|Blog|https://piatoss3612.tistory.com/18|
