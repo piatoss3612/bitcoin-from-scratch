@@ -1,6 +1,7 @@
 package helper
 
 import (
+	"encoding/binary"
 	"math/big"
 	"strings"
 	"unsafe"
@@ -83,4 +84,59 @@ func StringToBytes(s string) []byte {
 // 바이트 슬라이스를 문자열로 변환하는 함수
 func BytesToString(b []byte) string {
 	return unsafe.String(unsafe.SliceData(b), len(b))
+}
+
+// 가변 정수를 디코딩하는 함수
+func ReadVarint(b []byte) int {
+	i := b[0]
+
+	// 접두부에 따라 가변 정수의 길이가 달라짐
+	if i == 0xfd {
+		return LittleEndianToInt(b[1:3]) // 0xfd로 시작하는 경우 2바이트
+	}
+
+	if i == 0xfe {
+		return LittleEndianToInt(b[1:5]) // 0xfe로 시작하는 경우 4바이트
+	}
+
+	if i == 0xff {
+		return LittleEndianToInt(b[1:9]) // 0xff로 시작하는 경우 8바이트
+	}
+
+	return int(i) // 그 외의 경우 1바이트
+}
+
+// n을 가변 정수로 인코딩하는 함수
+func EncodeVarint(n int) []byte {
+	if n < 0xfd {
+		return []byte{byte(n)}
+	} else if n <= 0xffff {
+		return append([]byte{0xfd}, IntToLittleEndian(n, 2)...)
+	} else if n <= 0xffffffff {
+		return append([]byte{0xfe}, IntToLittleEndian(n, 4)...)
+	} else {
+		return append([]byte{0xff}, IntToLittleEndian(n, 8)...)
+	}
+}
+
+func IntToLittleEndian(n, length int) []byte {
+	b := binary.LittleEndian.AppendUint64([]byte{}, uint64(n))
+	b = b[:length]
+	return b
+}
+
+func LittleEndianToInt(b []byte) int {
+	if len(b) == 2 {
+		return int(binary.LittleEndian.Uint16(b))
+	}
+
+	if len(b) == 4 {
+		return int(binary.LittleEndian.Uint32(b))
+	}
+
+	if len(b) == 8 {
+		return int(binary.LittleEndian.Uint64(b))
+	}
+
+	return 0
 }
