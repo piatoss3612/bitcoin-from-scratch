@@ -1,6 +1,7 @@
 package ecc
 
 import (
+	"chapter05/helper"
 	"fmt"
 	"math/big"
 )
@@ -400,10 +401,10 @@ func (p s256Point) Mul(coefficient *big.Int) (Point, error) {
 
 // secp256k1 타원곡선의 점의 서명 검증 함수
 func (p s256Point) Verify(z []byte, sig Signature) (bool, error) {
-	bigZ := BytesToBigInt(z)     // z를 big.Int로 변환
-	sInv := invBN(sig.S(), N)    // s^-1
-	u := mulBN(bigZ, sInv, N)    // u = z * s^-1
-	v := mulBN(sig.R(), sInv, N) // v = r * s^-1
+	bigZ := helper.BytesToBigInt(z) // z를 big.Int로 변환
+	sInv := invBN(sig.S(), N)       // s^-1
+	u := mulBN(bigZ, sInv, N)       // u = z * s^-1
+	v := mulBN(sig.R(), sInv, N)    // v = r * s^-1
 
 	uG, err := G.Mul(u) // uG
 	if err != nil {
@@ -444,7 +445,7 @@ func (p s256Point) SEC(compressed bool) []byte {
 
 // secp256k1 타원곡선의 점의 SEC 형식을 160비트 해시로 변환하는 함수
 func (p s256Point) Hash160(compressed bool) []byte {
-	return Hash160(p.SEC(compressed))
+	return helper.Hash160(p.SEC(compressed))
 }
 
 // secp256k1 타원곡선의 점을 주소로 변환하는 함수
@@ -457,5 +458,5 @@ func (p s256Point) Address(compressed bool, testnet bool) string {
 		h160 = append([]byte{0x00}, h160...) // mainnet 주소의 prefix는 0x00
 	}
 
-	return EncodeBase58Checksum(h160) // Base58Checksum 인코딩
+	return helper.EncodeBase58Checksum(h160) // Base58Checksum 인코딩
 }

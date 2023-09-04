@@ -2,6 +2,7 @@ package ecc
 
 import (
 	"bytes"
+	"chapter05/helper"
 	"crypto/hmac"
 	"crypto/sha256"
 	"fmt"
@@ -80,7 +81,7 @@ type s256PrivateKey struct {
 
 // secp256k1 개인키를 생성하는 함수
 func NewS256PrivateKey(secret []byte) (PrivateKey, error) {
-	e := BytesToBigInt(secret)
+	e := helper.BytesToBigInt(secret)
 
 	point, err := G.Mul(e)
 	if err != nil {
@@ -97,8 +98,8 @@ func (pvk s256PrivateKey) String() string {
 
 // secp256k1 개인키로 서명을 생성하는 함수
 func (pvk s256PrivateKey) Sign(z []byte) (Signature, error) {
-	bigZ := BytesToBigInt(z)       // 서명할 메시지를 big.Int로 변환
-	e := BytesToBigInt(pvk.secret) // 개인키를 big.Int로 변환
+	bigZ := helper.BytesToBigInt(z)       // 서명할 메시지를 big.Int로 변환
+	e := helper.BytesToBigInt(pvk.secret) // 개인키를 big.Int로 변환
 
 	k, err := pvk.deterministicK(bigZ) // RFC6979 표준에 따라 k값을 생성
 	if err != nil {
@@ -193,5 +194,5 @@ func (pvk s256PrivateKey) WIF(compressed bool, testnet bool) string {
 		secret = append([]byte{0x80}, secret...)
 	}
 
-	return EncodeBase58Checksum(secret) // Base58Checksum 인코딩
+	return helper.EncodeBase58Checksum(secret) // Base58Checksum 인코딩
 }
