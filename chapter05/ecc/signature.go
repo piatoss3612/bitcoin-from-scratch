@@ -171,22 +171,27 @@ func (pvk s256PrivateKey) Point() Point {
 	return pvk.point
 }
 
+// secp256k1 개인키의 WIF 형식을 반환하는 함수
 func (pvk s256PrivateKey) WIF(compressed bool, testnet bool) string {
 	secret := pvk.secret
 
+	// secret의 길이가 32보다 작으면 비어있는 길이만큼 0x00을 추가
 	if len(secret) < 32 {
 		secret = append(make([]byte, 32-len(secret)), secret...)
 	}
 
+	// 압축된 공개키를 사용하는 경우, secret에 0x01을 추가
 	if compressed {
 		secret = append(secret, 0x01)
 	}
 
+	// testnet을 사용하는 경우, secret에 0xef를 추가
+	// mainnet을 사용하는 경우, secret에 0x80을 추가
 	if testnet {
 		secret = append([]byte{0xef}, secret...)
 	} else {
 		secret = append([]byte{0x80}, secret...)
 	}
 
-	return EncodeBase58Checksum(secret)
+	return EncodeBase58Checksum(secret) // Base58Checksum 인코딩
 }

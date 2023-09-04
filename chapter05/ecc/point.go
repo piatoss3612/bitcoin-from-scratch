@@ -400,10 +400,10 @@ func (p s256Point) Mul(coefficient *big.Int) (Point, error) {
 
 // secp256k1 타원곡선의 점의 서명 검증 함수
 func (p s256Point) Verify(z []byte, sig Signature) (bool, error) {
-	bigZ := new(big.Int).SetBytes(z) // z를 big.Int로 변환
-	sInv := invBN(sig.S(), N)        // s^-1
-	u := mulBN(bigZ, sInv, N)        // u = z * s^-1
-	v := mulBN(sig.R(), sInv, N)     // v = r * s^-1
+	bigZ := BytesToBigInt(z)     // z를 big.Int로 변환
+	sInv := invBN(sig.S(), N)    // s^-1
+	u := mulBN(bigZ, sInv, N)    // u = z * s^-1
+	v := mulBN(sig.R(), sInv, N) // v = r * s^-1
 
 	uG, err := G.Mul(u) // uG
 	if err != nil {
@@ -430,23 +430,26 @@ func (p s256Point) SEC(compressed bool) []byte {
 	if compressed {
 		// y좌표의 LSB가 0인 경우, 0x02를 prefix로 사용
 		if p.y.Num().Bit(0) == 0 {
-			return append([]byte{0x02}, p.x.Num().Bytes()...)
+			return append([]byte{0x02}, p.x.Num().FillBytes(make([]byte, 32))...)
 		}
 		// y좌표의 LSB가 1인 경우, 0x03을 prefix로 사용
-		return append([]byte{0x03}, p.x.Num().Bytes()...)
+		return append([]byte{0x03}, p.x.Num().FillBytes(make([]byte, 32))...)
 	}
 
-	return append([]byte{0x04}, append(p.x.Num().Bytes(), p.y.Num().Bytes()...)...)
+	return append([]byte{0x04},
+		append(
+			p.x.Num().FillBytes(make([]byte, 32)),
+			p.y.Num().FillBytes(make([]byte, 32))...)...)
 }
 
-// secp256k1 타원곡선의 점의 Hash160 함수
+// secp256k1 타원곡선의 점의 SEC 형식을 160비트 해시로 변환하는 함수
 func (p s256Point) Hash160(compressed bool) []byte {
 	return Hash160(p.SEC(compressed))
 }
 
-// secp256k1 타원곡선의 점의 주소 생성 함수
+// secp256k1 타원곡선의 점을 주소로 변환하는 함수
 func (p s256Point) Address(compressed bool, testnet bool) string {
-	h160 := p.Hash160(compressed) // 타원곡선 점의 Hash160
+	h160 := p.Hash160(compressed) // 타원곡선 점의 SEC 형식을 160비트 해시로 변환
 
 	if testnet {
 		h160 = append([]byte{0x6f}, h160...) // testnet 주소의 prefix는 0x6f
@@ -454,5 +457,5 @@ func (p s256Point) Address(compressed bool, testnet bool) string {
 		h160 = append([]byte{0x00}, h160...) // mainnet 주소의 prefix는 0x00
 	}
 
-	return EncodeBase58Checksum(h160) // Base58Check 인코딩
+	return EncodeBase58Checksum(h160) // Base58Checksum 인코딩
 }
