@@ -6,7 +6,6 @@ type Tx struct {
 	// txOuts: 트랜잭션의 출력 목록
 	// lockTime: 트랜잭션의 유효 시점
 	// testnet: 테스트넷인지 여부
-
 }
 
 func New() *Tx {
@@ -29,4 +28,15 @@ func (t Tx) Hash() []byte {
 }
 
 type TxIn struct {
+	seqNo     uint32
+	prevIndex uint32
+	prevTx    []byte
+	scriptSig []byte
+}
+
+func NewTxIn(prevTx []byte, prevIndex uint32) *TxIn {
+	return &TxIn{
+		prevTx:    prevTx,
+		prevIndex: prevIndex,
+	}
 }

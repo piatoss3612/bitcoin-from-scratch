@@ -1,25 +1,25 @@
 package main
 
 import (
-	"chapter05/helper"
+	"chapter05/utils"
 	"encoding/hex"
 	"fmt"
 )
 
 func main() {
-	b1 := helper.EncodeVarint(255)
+	b1 := utils.EncodeVarint(255)
 	fmt.Println(hex.EncodeToString(b1))
-	fmt.Println(helper.ReadVarint(b1))
+	fmt.Println(utils.ReadVarint(b1))
 
-	b2 := helper.EncodeVarint(555)
+	b2 := utils.EncodeVarint(555)
 	fmt.Println(hex.EncodeToString(b2))
-	fmt.Println(helper.ReadVarint(b2))
+	fmt.Println(utils.ReadVarint(b2))
 
-	b3 := helper.EncodeVarint(70015)
+	b3 := utils.EncodeVarint(70015)
 	fmt.Println(hex.EncodeToString(b3))
-	fmt.Println(helper.ReadVarint(b3))
+	fmt.Println(utils.ReadVarint(b3))
 
-	b4 := helper.EncodeVarint(18005558675309)
+	b4 := utils.EncodeVarint(18005558675309)
 	fmt.Println(hex.EncodeToString(b4))
-	fmt.Println(helper.ReadVarint(b4))
+	fmt.Println(utils.ReadVarint(b4))
 }
