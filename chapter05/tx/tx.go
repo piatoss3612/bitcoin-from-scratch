@@ -1,6 +1,10 @@
 package tx
 
-import "fmt"
+import (
+	"chapter05/utils"
+	"encoding/hex"
+	"fmt"
+)
 
 type Tx struct {
 	version  int      // 트랜잭션의 버전
@@ -23,18 +27,46 @@ func NewTx(version int, inputs []*TxIn, outputs []*TxOut, lockTime int, testnet 
 }
 
 func (t Tx) String() string {
-	// TODO: implement
-	panic("not implemented")
+	return fmt.Sprintf("tx: %s\nversion: %d\ninputs: %s\noutputs: %s\nlocktime: %d",
+		t.ID(), t.version, t.inputs, t.outputs, t.lockTime)
 }
 
-func (t Tx) ID() []byte {
-	// TODO: implement
-	panic("not implemented")
+func (t Tx) ID() string {
+	return hex.EncodeToString(t.Hash())
 }
 
 func (t Tx) Hash() []byte {
-	// TODO: implement
-	panic("not implemented")
+	return utils.ReverseBytes(utils.Hash256(t.Serialize()))
+}
+
+func (t Tx) Serialize() []byte {
+	result := utils.IntToLittleEndian(t.version, 4)                    // 버전
+	result = append(result, t.serializeInputs()...)                    // 입력 목록
+	result = append(result, t.serializeOutputs()...)                   // 출력 목록
+	result = append(result, utils.IntToLittleEndian(t.lockTime, 4)...) // 유효 시점
+	return result
+}
+
+func (t Tx) serializeInputs() []byte {
+	result := utils.EncodeVarint(len(t.inputs)) // 입력 개수
+
+	// 입력 개수만큼 반복하면서 각 입력을 직렬화한 결과를 result에 추가
+	for _, input := range t.inputs {
+		result = append(result, input.Serialize()...)
+	}
+
+	return result // 직렬화한 결과를 반환
+}
+
+func (t Tx) serializeOutputs() []byte {
+	result := utils.EncodeVarint(len(t.outputs)) // 출력 개수
+
+	// 출력 개수만큼 반복하면서 각 출력을 직렬화한 결과를 result에 추가
+	for _, output := range t.outputs {
+		result = append(result, output.Serialize()...)
+	}
+
+	return result // 직렬화한 결과를 반환
 }
 
 // Transaction 입력을 나타내는 구조체
@@ -66,6 +98,15 @@ func (t TxIn) String() string {
 	return fmt.Sprintf("%s:%d", t.prevTx, t.prevIndex)
 }
 
+// TxIn을 직렬화한 결과를 반환하는 함수
+func (t TxIn) Serialize() []byte {
+	result := utils.ReverseBytes(utils.StringToBytes(t.prevTx))
+	result = append(result, utils.IntToLittleEndian(t.prevIndex, 4)...)
+	// TODO: scriptSig를 직렬화한 결과를 result에 추가
+	result = append(result, utils.IntToLittleEndian(t.seqNo, 4)...)
+	return result
+}
+
 type TxOut struct {
 	amount       int    // 금액
 	scriptPubKey string // 잠금 스크립트
@@ -80,4 +121,10 @@ func NewTxOut(amount int, scriptPubKey string) *TxOut {
 
 func (t TxOut) String() string {
 	return fmt.Sprintf("%d:%s", t.amount, t.scriptPubKey)
+}
+
+func (t TxOut) Serialize() []byte {
+	result := utils.IntToLittleEndian(t.amount, 8)
+	// TODO: scriptPubKey를 직렬화한 결과를 result에 추가
+	return result
 }
