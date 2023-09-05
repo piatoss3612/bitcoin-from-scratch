@@ -3,23 +3,20 @@ package tx
 import "fmt"
 
 type Tx struct {
-	version int      // 트랜잭션의 버전
-	inputs  []*TxIn  // 트랜잭션의 입력 목록
-	outputs []*TxOut // 트랜잭션의 출력 목록
-	// lockTime: 트랜잭션의 유효 시점
-	testnet bool // 테스트넷인지 여부
+	version  int      // 트랜잭션의 버전
+	inputs   []*TxIn  // 트랜잭션의 입력 목록
+	outputs  []*TxOut // 트랜잭션의 출력 목록
+	lockTime int      // 트랜잭션의 유효 시점
+	testnet  bool     // 테스트넷인지 여부
 }
 
-func NewTx(version int, inputs []*TxIn, outputs []*TxOut, testnet ...bool) *Tx {
+func NewTx(version int, inputs []*TxIn, outputs []*TxOut, lockTime int, testnet bool) *Tx {
 	tx := &Tx{
-		version: version,
-		inputs:  inputs,
-		outputs: outputs,
-		testnet: false,
-	}
-
-	if len(testnet) > 0 {
-		tx.testnet = testnet[0]
+		version:  version,
+		inputs:   inputs,
+		outputs:  outputs,
+		lockTime: lockTime,
+		testnet:  testnet,
 	}
 
 	return tx

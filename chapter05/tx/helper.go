@@ -2,7 +2,7 @@ package tx
 
 import "chapter05/utils"
 
-func ParseTx(b []byte) (*Tx, error) {
+func ParseTx(b []byte, testnet bool) (*Tx, error) {
 	version := utils.LittleEndianToInt(b[:4])
 	b = b[4:]
 
@@ -28,7 +28,9 @@ func ParseTx(b []byte) (*Tx, error) {
 		b = b[read:]
 	}
 
-	return NewTx(version, inputs, outputs), nil
+	lockTime := utils.LittleEndianToInt(b[:4])
+
+	return NewTx(version, inputs, outputs, lockTime, testnet), nil
 }
 
 func ParseTxIn(b []byte) (*TxIn, int) {
