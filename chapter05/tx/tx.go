@@ -4,6 +4,8 @@ import (
 	"chapter05/utils"
 	"encoding/hex"
 	"fmt"
+	"io"
+	"net/http"
 )
 
 type Tx struct {
@@ -127,4 +129,78 @@ func (t TxOut) Serialize() []byte {
 	result := utils.IntToLittleEndian(t.amount, 8)
 	// TODO: scriptPubKey를 직렬화한 결과를 result에 추가
 	return result
+}
+
+type TxFetcher struct {
+	client *http.Client
+	cache  map[string]*Tx
+}
+
+func NewTxFetcher(clients ...*http.Client) *TxFetcher {
+	tf := &TxFetcher{
+		client: &http.Client{},
+		cache:  make(map[string]*Tx),
+	}
+
+	if len(clients) > 0 && clients[0] != nil {
+		tf.client = clients[0]
+	}
+
+	return tf
+}
+
+func (tf TxFetcher) GetURL(testnet bool) string {
+	if testnet {
+		return "https://blockstream.info/testnet/api/"
+	}
+	return "https://blockstream.info/api/"
+}
+
+func (tf *TxFetcher) Fetch(txID string, testnet, fresh bool) (*Tx, error) {
+	if fresh || tf.cache[txID] == nil {
+		url := fmt.Sprintf("%s/tx/%s/hex", tf.GetURL(testnet), txID)
+
+		resp, err := tf.client.Get(url)
+		if err != nil {
+			return nil, err
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("error fetching %s: %s", txID, resp.Status)
+		}
+
+		raw, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+
+		rawHex := make([]byte, hex.DecodedLen(len(raw)))
+
+		_, err = hex.Decode(rawHex, raw)
+		if err != nil {
+			return nil, err
+		}
+
+		var tx *Tx
+
+		if rawHex[4] == 0x00 {
+			rawHex = append(rawHex[:4], rawHex[6:]...)
+			tx, err = ParseTx(rawHex, testnet)
+			if err != nil {
+				return nil, err
+			}
+			tx.lockTime = utils.LittleEndianToInt(rawHex[len(rawHex)-4:])
+		} else {
+			fmt.Println("here")
+			tx, err = ParseTx(rawHex, testnet)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		tf.cache[txID] = tx
+	}
+	tf.cache[txID].testnet = testnet
+	return tf.cache[txID], nil
 }

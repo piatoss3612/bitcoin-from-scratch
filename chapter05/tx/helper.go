@@ -1,32 +1,35 @@
 package tx
 
-import "chapter05/utils"
+import (
+	"chapter05/utils"
+)
 
 func ParseTx(b []byte, testnet bool) (*Tx, error) {
 	version := utils.LittleEndianToInt(b[:4])
+
 	b = b[4:]
 
-	numInputs, read := utils.ReadVarint(b)
-	b = b[read:]
+	// numInputs, read := utils.ReadVarint(b)
+	// b = b[read:]
 
 	inputs := []*TxIn{}
 
-	for i := 0; i < numInputs; i++ {
-		txIn, read := ParseTxIn(b)
-		inputs = append(inputs, txIn)
-		b = b[read:]
-	}
+	// for i := 0; i < numInputs; i++ {
+	// 	txIn, read := ParseTxIn(b)
+	// 	inputs = append(inputs, txIn)
+	// 	b = b[read:]
+	// }
 
-	numOutputs, read := utils.ReadVarint(b)
-	b = b[read:]
+	// numOutputs, read := utils.ReadVarint(b)
+	// b = b[read:]
 
 	outputs := []*TxOut{}
 
-	for i := 0; i < numOutputs; i++ {
-		txOut, read := ParseTxOut(b)
-		outputs = append(outputs, txOut)
-		b = b[read:]
-	}
+	// for i := 0; i < numOutputs; i++ {
+	// 	txOut, read := ParseTxOut(b)
+	// 	outputs = append(outputs, txOut)
+	// 	b = b[read:]
+	// }
 
 	lockTime := utils.LittleEndianToInt(b[:4])
 

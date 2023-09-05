@@ -126,16 +126,16 @@ func IntToLittleEndian(n, length int) []byte {
 }
 
 func LittleEndianToInt(b []byte) int {
-	if len(b) == 2 {
-		return int(binary.LittleEndian.Uint16(b))
+	if len(b) >= 8 {
+		return int(binary.LittleEndian.Uint64(b))
 	}
 
-	if len(b) == 4 {
+	if len(b) >= 4 {
 		return int(binary.LittleEndian.Uint32(b))
 	}
 
-	if len(b) == 8 {
-		return int(binary.LittleEndian.Uint64(b))
+	if len(b) >= 2 {
+		return int(binary.LittleEndian.Uint16(b))
 	}
 
 	return 0
