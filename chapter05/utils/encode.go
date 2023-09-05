@@ -87,23 +87,23 @@ func BytesToString(b []byte) string {
 }
 
 // 가변 정수를 디코딩하는 함수
-func ReadVarint(b []byte) int {
+func ReadVarint(b []byte) (int, int) {
 	i := b[0]
 
 	// 접두부에 따라 가변 정수의 길이가 달라짐
 	if i == 0xfd {
-		return LittleEndianToInt(b[1:3]) // 0xfd로 시작하는 경우 2바이트
+		return LittleEndianToInt(b[1:3]), 3 // 0xfd로 시작하는 경우 2바이트, 3은 접두부를 포함한 길이
 	}
 
 	if i == 0xfe {
-		return LittleEndianToInt(b[1:5]) // 0xfe로 시작하는 경우 4바이트
+		return LittleEndianToInt(b[1:5]), 5 // 0xfe로 시작하는 경우 4바이트, 5는 접두부를 포함한 길이
 	}
 
 	if i == 0xff {
-		return LittleEndianToInt(b[1:9]) // 0xff로 시작하는 경우 8바이트
+		return LittleEndianToInt(b[1:9]), 9 // 0xff로 시작하는 경우 8바이트, 9는 접두부를 포함한 길이
 	}
 
-	return int(i) // 그 외의 경우 1바이트
+	return int(i), 1 // 그 외의 경우 1바이트, 1은 접두부를 포함한 길이
 }
 
 // n을 가변 정수로 인코딩하는 함수
