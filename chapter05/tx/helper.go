@@ -17,7 +17,18 @@ func ParseTx(b []byte) (*Tx, error) {
 		b = b[read:]
 	}
 
-	return NewTx(version, inputs), nil
+	numOutputs, read := utils.ReadVarint(b)
+	b = b[read:]
+
+	outputs := []*TxOut{}
+
+	for i := 0; i < numOutputs; i++ {
+		txOut, read := ParseTxOut(b)
+		outputs = append(outputs, txOut)
+		b = b[read:]
+	}
+
+	return NewTx(version, inputs, outputs), nil
 }
 
 func ParseTxIn(b []byte) (*TxIn, int) {
@@ -27,4 +38,11 @@ func ParseTxIn(b []byte) (*TxIn, int) {
 	seqNo := utils.LittleEndianToInt(b[len(b)-4:])
 
 	return NewTxIn(prevIndex, string(prevTx), string(scriptSig), seqNo), len(b)
+}
+
+func ParseTxOut(b []byte) (*TxOut, int) {
+	value := utils.LittleEndianToInt(b[:8])
+	scriptPubKey := b[8:] // TODO: parse scriptPubKey
+
+	return NewTxOut(value, string(scriptPubKey)), len(b)
 }
