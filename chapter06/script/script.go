@@ -24,7 +24,8 @@ func (s Script) String() string {
 			builder.WriteString(hex.EncodeToString(cmd))
 			builder.WriteString(" ")
 		case int:
-			builder.WriteString("OP_ ")
+			builder.WriteString(OpCode(cmd).String())
+			builder.WriteString(" ")
 		}
 	}
 
