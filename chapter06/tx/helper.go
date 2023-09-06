@@ -1,56 +1,83 @@
 package tx
 
 import (
+	"bytes"
+	"chapter06/script"
 	"chapter06/utils"
+	"encoding/hex"
 )
 
 // 트랜잭션을 파싱하는 함수
 func ParseTx(b []byte, testnet bool) (*Tx, error) {
-	version := utils.LittleEndianToInt(b[:4])
+	buf := bytes.NewBuffer(b)
 
-	b = b[4:]
+	version := utils.LittleEndianToInt(buf.Next(4))
 
-	// numInputs, read := utils.ReadVarint(b)
-	// b = b[read:]
+	numInputs, read := utils.ReadVarint(buf.Bytes())
+	buf.Next(read)
 
 	inputs := []*TxIn{}
 
-	// for i := 0; i < numInputs; i++ {
-	// 	txIn, read := ParseTxIn(b)
-	// 	inputs = append(inputs, txIn)
-	// 	b = b[read:]
-	// }
+	for i := 0; i < numInputs; i++ {
+		txIn, read, err := ParseTxIn(buf.Bytes())
+		if err != nil {
+			return nil, err
+		}
 
-	// numOutputs, read := utils.ReadVarint(b)
-	// b = b[read:]
+		inputs = append(inputs, txIn)
+		buf.Next(read)
+	}
+
+	numOutputs, read := utils.ReadVarint(buf.Bytes())
+	buf.Next(read)
 
 	outputs := []*TxOut{}
 
-	// for i := 0; i < numOutputs; i++ {
-	// 	txOut, read := ParseTxOut(b)
-	// 	outputs = append(outputs, txOut)
-	// 	b = b[read:]
-	// }
+	for i := 0; i < numOutputs; i++ {
+		txOut, read, err := ParseTxOut(buf.Bytes())
+		if err != nil {
+			return nil, err
+		}
 
-	lockTime := utils.LittleEndianToInt(b[:4])
+		outputs = append(outputs, txOut)
+		buf.Next(read)
+	}
+
+	lockTime := utils.LittleEndianToInt(buf.Next(4))
 
 	return NewTx(version, inputs, outputs, lockTime, testnet), nil
 }
 
 // TxIn을 파싱하는 함수
-func ParseTxIn(b []byte) (*TxIn, int) {
-	prevTx := utils.ReverseBytes(b[:32])
-	prevIndex := utils.LittleEndianToInt(b[32:36])
-	scriptSig := b[36:] // TODO: parse scriptSig
-	seqNo := utils.LittleEndianToInt(b[len(b)-4:])
+func ParseTxIn(b []byte) (*TxIn, int, error) {
+	buf := bytes.NewBuffer(b)
 
-	return NewTxIn(prevIndex, string(prevTx), string(scriptSig), seqNo), len(b)
+	prevTx := utils.ReverseBytes(buf.Next(32))
+
+	prevIndex := utils.LittleEndianToInt(buf.Next(4))
+
+	scriptSig, read, err := script.Parse(buf.Bytes())
+	if err != nil {
+		return nil, 0, err
+	}
+
+	buf.Next(read)
+
+	seqNo := utils.LittleEndianToInt(buf.Next(4))
+
+	return NewTxIn(hex.EncodeToString(prevTx), prevIndex, scriptSig, seqNo), 40 + read, nil
 }
 
 // TxOut을 파싱하는 함수
-func ParseTxOut(b []byte) (*TxOut, int) {
-	value := utils.LittleEndianToInt(b[:8])
-	scriptPubKey := b[8:] // TODO: parse scriptPubKey
+func ParseTxOut(b []byte) (*TxOut, int, error) {
+	buf := bytes.NewBuffer(b)
 
-	return NewTxOut(value, string(scriptPubKey)), len(b)
+	value := utils.LittleEndianToInt(buf.Next(8))
+
+	scriptPubKey, read, err := script.Parse(buf.Bytes())
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return NewTxOut(value, scriptPubKey), 8 + read, nil
 }

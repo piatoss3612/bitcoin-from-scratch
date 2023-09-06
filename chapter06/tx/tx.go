@@ -1,6 +1,7 @@
 package tx
 
 import (
+	"chapter06/script"
 	"chapter06/utils"
 	"encoding/hex"
 	"fmt"
@@ -120,14 +121,14 @@ func (t Tx) totalOutput() int {
 
 // 트랜잭션 입력을 나타내는 구조체
 type TxIn struct {
-	PrevIndex int    // 이전 트랜잭션의 출력 인덱스
-	PrevTx    string // 이전 트랜잭션의 해시
-	ScriptSig string // 해제 스크립트
-	SeqNo     int    // 시퀀스 번호
+	PrevIndex int            // 이전 트랜잭션의 출력 인덱스
+	PrevTx    string         // 이전 트랜잭션의 해시
+	ScriptSig *script.Script // 해제 스크립트
+	SeqNo     int            // 시퀀스 번호
 }
 
 // TxIn 생성자 함수
-func NewTxIn(prevIndex int, prevTx, scriptSig string, seqNos ...int) *TxIn {
+func NewTxIn(prevTx string, prevIndex int, scriptSig *script.Script, seqNos ...int) *TxIn {
 	tx := &TxIn{
 		PrevTx:    prevTx,
 		PrevIndex: prevIndex,
@@ -172,10 +173,10 @@ func (t TxIn) Value(fetcher *TxFetcher, testnet bool) (int, error) {
 }
 
 // TxIn의 이전 트랜잭션 출력의 잠금 스크립트를 반환하는 함수
-func (t TxIn) ScriptPubKey(fetcher *TxFetcher, testnet bool) (string, error) {
+func (t TxIn) ScriptPubKey(fetcher *TxFetcher, testnet bool) (*script.Script, error) {
 	tx, err := t.FetchTx(fetcher, testnet)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	return tx.Outputs[t.PrevIndex].ScriptPubKey, nil
@@ -183,12 +184,12 @@ func (t TxIn) ScriptPubKey(fetcher *TxFetcher, testnet bool) (string, error) {
 
 // 트랜잭션 출력을 나타내는 구조체
 type TxOut struct {
-	Amount       int    // 금액
-	ScriptPubKey string // 잠금 스크립트
+	Amount       int            // 금액
+	ScriptPubKey *script.Script // 잠금 스크립트
 }
 
 // TxOut 생성자 함수
-func NewTxOut(amount int, scriptPubKey string) *TxOut {
+func NewTxOut(amount int, scriptPubKey *script.Script) *TxOut {
 	return &TxOut{
 		Amount:       amount,
 		ScriptPubKey: scriptPubKey,

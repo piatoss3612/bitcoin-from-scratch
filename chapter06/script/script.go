@@ -2,7 +2,9 @@ package script
 
 import (
 	"chapter06/utils"
+	"encoding/hex"
 	"errors"
+	"strings"
 )
 
 type Script struct {
@@ -11,6 +13,22 @@ type Script struct {
 
 func New(cmds ...any) *Script {
 	return &Script{cmds}
+}
+
+func (s Script) String() string {
+	builder := strings.Builder{}
+
+	for _, cmd := range s.Cmds {
+		switch cmd := cmd.(type) {
+		case []byte:
+			builder.WriteString(hex.EncodeToString(cmd))
+			builder.WriteString(" ")
+		case int:
+			builder.WriteString("OP_ ")
+		}
+	}
+
+	return builder.String()
 }
 
 func (s Script) RawSerialize() ([]byte, error) {
