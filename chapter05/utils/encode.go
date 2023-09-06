@@ -119,12 +119,14 @@ func EncodeVarint(n int) []byte {
 	}
 }
 
+// 정수를 리틀엔디언으로 인코딩하는 함수
 func IntToLittleEndian(n, length int) []byte {
 	b := binary.LittleEndian.AppendUint64([]byte{}, uint64(n))
 	b = b[:length]
 	return b
 }
 
+// 리틀엔디언으로 인코딩된 바이트 슬라이스를 정수로 변환하는 함수
 func LittleEndianToInt(b []byte) int {
 	if len(b) >= 8 {
 		return int(binary.LittleEndian.Uint64(b))

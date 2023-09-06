@@ -4,6 +4,7 @@ import (
 	"chapter05/utils"
 )
 
+// 트랜잭션을 파싱하는 함수
 func ParseTx(b []byte, testnet bool) (*Tx, error) {
 	version := utils.LittleEndianToInt(b[:4])
 
@@ -36,6 +37,7 @@ func ParseTx(b []byte, testnet bool) (*Tx, error) {
 	return NewTx(version, inputs, outputs, lockTime, testnet), nil
 }
 
+// TxIn을 파싱하는 함수
 func ParseTxIn(b []byte) (*TxIn, int) {
 	prevTx := utils.ReverseBytes(b[:32])
 	prevIndex := utils.LittleEndianToInt(b[32:36])
@@ -45,6 +47,7 @@ func ParseTxIn(b []byte) (*TxIn, int) {
 	return NewTxIn(prevIndex, string(prevTx), string(scriptSig), seqNo), len(b)
 }
 
+// TxOut을 파싱하는 함수
 func ParseTxOut(b []byte) (*TxOut, int) {
 	value := utils.LittleEndianToInt(b[:8])
 	scriptPubKey := b[8:] // TODO: parse scriptPubKey
