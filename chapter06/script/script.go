@@ -74,3 +74,80 @@ func (s Script) Add(other *Script) *Script {
 	cmds := append(s.Cmds, other.Cmds...)
 	return New(cmds...)
 }
+
+func (s *Script) Evaluate(z []byte) bool {
+	cmds := s.Cmds
+	stack := []any{}
+	altstack := []any{}
+
+	for len(cmds) > 0 {
+		cmd := cmds[0]
+		cmds = cmds[1:]
+
+		switch cmd := cmd.(type) {
+		case int:
+			operation := OpCodeFuncs[OpCode(cmd)]
+
+			if cmd > 98 && cmd < 101 {
+				fn, ok := operation.(func(*[]any, *[]any) bool)
+				if !ok {
+					return false
+				}
+
+				if !fn(&stack, &cmds) {
+					return false
+				}
+			} else if cmd > 106 && cmd < 109 {
+				fn, ok := operation.(func(*[]any, *[]any) bool)
+				if !ok {
+					return false
+				}
+
+				if !fn(&stack, &altstack) {
+					return false
+				}
+			} else if cmd > 171 && cmd < 176 {
+				fn, ok := operation.(func(*[]any, []byte) bool)
+				if !ok {
+					return false
+				}
+
+				if !fn(&stack, z) {
+					return false
+				}
+			} else {
+				fn, ok := operation.(func(*[]any) bool)
+				if !ok {
+					return false
+				}
+
+				if !fn(&stack) {
+					return false
+				}
+			}
+		case []byte:
+			stack = append(stack, cmd)
+		default:
+			return false
+		}
+	}
+
+	if len(stack) == 0 {
+		return false
+	}
+
+	switch popped := stack[len(stack)-1].(type) {
+	case int:
+		if popped == 0 {
+			return false
+		}
+	case []byte:
+		if len(popped) == 0 {
+			return false
+		}
+	default:
+		return false
+	}
+
+	return true
+}
