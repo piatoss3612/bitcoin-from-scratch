@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"crypto/sha1"
 	"crypto/sha256"
 
 	"golang.org/x/crypto/ripemd160"
@@ -8,24 +9,28 @@ import (
 
 // sha256(sha256(b))를 구하는 함수
 func Hash256(b []byte) []byte {
-	h1 := sha256.New()
-	_, _ = h1.Write(b)
-	intermediateHash := h1.Sum(nil)
-	h2 := sha256.New()
-	_, _ = h2.Write(intermediateHash)
-	return h2.Sum(nil)
+	return Sha256(Sha256(b))
 }
 
 // ripemd160(sha256(b))를 구하는 함수
 func Hash160(b []byte) []byte {
-	// sha256 해시값을 구함
-	h256 := sha256.New()
-	_, _ = h256.Write(b)
-	hash1 := h256.Sum(nil)
+	return Ripemd160(Sha256(b))
+}
 
-	// sha256 해시값을 사용하여 ripemd160 해시값을 구함
-	ripemd160 := ripemd160.New()
-	_, _ = ripemd160.Write(hash1)
+func Ripemd160(b []byte) []byte {
+	h := ripemd160.New()
+	_, _ = h.Write(b)
+	return h.Sum(nil)
+}
 
-	return ripemd160.Sum(nil)
+func Sha1(b []byte) []byte {
+	h := sha1.New()
+	_, _ = h.Write(b)
+	return h.Sum(nil)
+}
+
+func Sha256(b []byte) []byte {
+	h := sha256.New()
+	_, _ = h.Write(b)
+	return h.Sum(nil)
 }

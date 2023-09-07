@@ -1,6 +1,7 @@
 package ecc
 
 import (
+	"bytes"
 	"errors"
 	"math/big"
 )
@@ -85,7 +86,7 @@ func inRange(num, prime *big.Int) bool {
 }
 
 // sec 바이트 슬라이스를 타원곡선 위의 점으로 변환하는 함수
-func Parse(sec []byte) (Point, error) {
+func ParsePoint(sec []byte) (Point, error) {
 	// prefix가 0x04인 경우, 비압축 포맷
 	if sec[0] == 0x04 {
 		x, err := NewS256FieldElement(new(big.Int).SetBytes(sec[1:33]))
@@ -144,4 +145,45 @@ func Parse(sec []byte) (Point, error) {
 	}
 
 	return nil, errors.New("invalid sec format")
+}
+
+func ParseSignature(der []byte) (Signature, error) {
+	buf := bytes.NewBuffer(der)
+
+	compound := buf.Next(1)[0]
+
+	if compound != 0x30 {
+		return nil, errors.New("invalid compound byte")
+	}
+
+	length := buf.Next(1)[0]
+
+	if int(length)+2 != len(der) {
+		return nil, errors.New("invalid length")
+	}
+
+	marker := buf.Next(1)[0]
+	if marker != 0x02 {
+		return nil, errors.New("invalid marker for r")
+	}
+
+	rLength := buf.Next(1)[0]
+	r := buf.Next(int(rLength))
+
+	marker = buf.Next(1)[0]
+	if marker != 0x02 {
+		return nil, errors.New("invalid marker for s")
+	}
+
+	sLength := buf.Next(1)[0]
+	s := buf.Next(int(sLength))
+
+	if len(der) != 6+int(rLength)+int(sLength) {
+		return nil, errors.New("invalid signature")
+	}
+
+	return NewS256Signature(
+		big.NewInt(0).SetBytes(r),
+		big.NewInt(0).SetBytes(s),
+	), nil
 }
