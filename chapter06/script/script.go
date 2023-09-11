@@ -37,20 +37,22 @@ func (s Script) RawSerialize() ([]byte, error) {
 
 	for _, cmd := range s.Cmds {
 		switch cmd := cmd.(type) {
+		// 스크립트 명령어가 []byte 타입인 경우: 원소의 길이에 따라 다른 방식으로 직렬화
 		case []byte:
 			length := len(cmd)
-			if length < 75 {
+			if length < 75 { // 원소의 길이가 75보다 작은 경우: 해당 길이를 1바이트 리틀엔디언으로 직렬화
 				result = append(result, utils.IntToLittleEndian(length, 1)...)
-			} else if length > 75 && length < 0x100 {
+			} else if length > 75 && length < 0x100 { // 원소의 길이가 75보다 크고 0x100보다 작은 경우: OP_PUSHDATA1에 해당하므로 76을 추가하고 길이를 1바이트 리틀엔디언으로 직렬화
 				result = append(result, 76)
 				result = append(result, utils.IntToLittleEndian(length, 1)...)
-			} else if length >= 0x100 && length < 520 {
+			} else if length >= 0x100 && length < 520 { // 원소의 길이가 0x100보다 크거나 같고 520보다 작은 경우: OP_PUSHDATA2에 해당하므로 77을 추가하고 길이를 2바이트 리틀엔디언으로 직렬화
 				result = append(result, 77)
 				result = append(result, utils.IntToLittleEndian(length, 2)...)
-			} else {
+			} else { // 그 외의 경우: 에러 반환
 				return nil, errors.New("too long an cmd")
 			}
-			result = append(result, cmd...)
+			result = append(result, cmd...) // 직렬화한 데이터를 추가
+		// 스크립트 명령어가 int 타입인 경우: 연산자에 해당하므로 리틀엔디언으로 직렬화
 		case int:
 			result = append(result, utils.IntToLittleEndian(cmd, 1)...)
 		}
@@ -60,13 +62,14 @@ func (s Script) RawSerialize() ([]byte, error) {
 }
 
 func (s Script) Serialize() ([]byte, error) {
-	result, err := s.RawSerialize()
+	result, err := s.RawSerialize() // 직렬화한 데이터
 	if err != nil {
 		return nil, err
 	}
 
-	total := len(result)
+	total := len(result) // 직렬화한 데이터의 전체 길이
 
+	// 직렬화한 데이터의 전체 길이를 가변 정수로 직렬화한 뒤 직렬화한 데이터를 추가하여 반환
 	return append(utils.EncodeVarint(total), result...), nil
 }
 
