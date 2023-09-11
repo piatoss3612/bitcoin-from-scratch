@@ -8,10 +8,6 @@ import (
 
 type OpCode int
 
-type OpCodeFuncA func(*[]any) bool
-type OpCodeFuncB func(*[]any, *[]any) bool
-type OpCodeFuncC func(s *[]any, z []byte) bool
-
 const (
 	OpCode0                   OpCode = 0x00
 	OpCode1Negate             OpCode = 0x4f
