@@ -48,13 +48,11 @@ func EncodeBase58(s []byte) string {
 // 바이트 슬라이스를 뒤집는 함수
 func ReverseBytes(b []byte) []byte {
 	n := len(b)
-	result := make([]byte, n)
-
-	for i := 0; i < n; i++ {
-		result[i] = b[n-i-1]
+	for i, j := 0, n-1; i < j; i, j = i+1, j-1 {
+		b[i], b[j] = b[j], b[i] // 바이트 슬라이스의 앞뒤를 서로 바꿈
 	}
 
-	return result
+	return b
 }
 
 // 바이트 슬라이스의 체크섬을 추가하여 base58로 인코딩하는 함수
