@@ -11,6 +11,7 @@
 3. [타원곡선 암호](#3-타원곡선-암호)
 4. [직렬화](#4-직렬화)
 5. [트랜잭션](#5-트랜잭션)
+6. [스크립트](#6-스크립트)
 
 ## 1. 유한체
 
@@ -46,3 +47,10 @@
 |---|---|
 |Code|https://github.com/piatoss3612/bitcoin-from-scratch/tree/chapter05|
 |Blog|https://piatoss3612.tistory.com/20|
+
+## 6. 스크립트
+
+|Content|Link|
+|---|---|
+|Code|https://github.com/piatoss3612/bitcoin-from-scratch/tree/chapter06|
+|Blog|https://piatoss3612.tistory.com/22|
