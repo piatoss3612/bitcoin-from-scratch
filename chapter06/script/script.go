@@ -78,76 +78,85 @@ func (s Script) Add(other *Script) *Script {
 	return New(cmds...)
 }
 
+// 스크립트 명령어 집합을 순회하면서 스크립트가 유효한지 확인
 func (s *Script) Evaluate(z []byte) bool {
-	cmds := s.Cmds
-	stack := []any{}
-	altstack := []any{}
+	cmds := s.Cmds      // 스크립트 명령어 집합 복사
+	stack := []any{}    // 스택
+	altstack := []any{} // 대체 스택
 
+	// 스크립트 명령어를 순회하면서 스택에 데이터를 추가하거나 연산을 수행
 	for len(cmds) > 0 {
-		cmd := cmds[0]
-		cmds = cmds[1:]
+		cmd := cmds[0]  // 스크립트 명령어 집합의 첫 번째 원소
+		cmds = cmds[1:] // 스크립트 명령어 집합의 첫 번째 원소 제거
 
 		switch cmd := cmd.(type) {
+		// 스크립트 명령어가 int 타입인 경우: 연산자에 해당하므로 연산을 수행
 		case int:
-			operation := OpCodeFuncs[OpCode(cmd)]
+			operation := OpCodeFuncs[OpCode(cmd)] // 연산자에 해당하는 함수 가져오기
 
 			if cmd > 98 && cmd < 101 {
-				fn, ok := operation.(func(*[]any, *[]any) bool)
+				fn, ok := operation.(func(*[]any, *[]any) bool) // 연산자에 해당하는 함수가 func(*[]any, *[]any) bool 타입인지 확인
 				if !ok {
 					return false
 				}
 
-				if !fn(&stack, &cmds) {
+				if !fn(&stack, &cmds) { // stack과 cmds를 인자로 연산자에 해당하는 함수 호출
 					return false
 				}
 			} else if cmd > 106 && cmd < 109 {
-				fn, ok := operation.(func(*[]any, *[]any) bool)
+				fn, ok := operation.(func(*[]any, *[]any) bool) // 연산자에 해당하는 함수가 func(*[]any, *[]any) bool 타입인지 확인
 				if !ok {
 					return false
 				}
 
-				if !fn(&stack, &altstack) {
+				if !fn(&stack, &altstack) { // stack과 altstack을 인자로 연산자에 해당하는 함수 호출
 					return false
 				}
 			} else if cmd > 171 && cmd < 176 {
-				fn, ok := operation.(func(*[]any, []byte) bool)
+				fn, ok := operation.(func(*[]any, []byte) bool) // 연산자에 해당하는 함수가 func(*[]any, []byte) bool 타입인지 확인
 				if !ok {
 					return false
 				}
 
-				if !fn(&stack, z) {
+				if !fn(&stack, z) { // stack과 z를 인자로 연산자에 해당하는 함수 호출
 					return false
 				}
 			} else {
-				fn, ok := operation.(func(*[]any) bool)
+				fn, ok := operation.(func(*[]any) bool) // 연산자에 해당하는 함수가 func(*[]any) bool 타입인지 확인
 				if !ok {
 					return false
 				}
 
-				if !fn(&stack) {
+				if !fn(&stack) { // stack을 인자로 연산자에 해당하는 함수 호출
 					return false
 				}
 			}
+		// 스크립트 명령어가 []byte 타입인 경우: 스택에 원소를 추가
 		case []byte:
 			stack = append(stack, cmd)
+		// 그 외의 경우: 에러 반환
 		default:
 			return false
 		}
 	}
 
+	// 스택이 비어있는 경우: 스크립트가 유효하지 않음
 	if len(stack) == 0 {
 		return false
 	}
 
 	switch popped := stack[len(stack)-1].(type) {
+	// 스택의 마지막 원소가 int 타입인 경우: 해당 원소가 0이 아닌 경우 스크립트가 유효함
 	case int:
 		if popped == 0 {
 			return false
 		}
+	// 스택의 마지막 원소가 []byte 타입인 경우: 해당 원소가 비어있지 않은 경우 스크립트가 유효함
 	case []byte:
 		if len(popped) == 0 {
 			return false
 		}
+	// 그 외의 경우: 에러 반환
 	default:
 		return false
 	}
