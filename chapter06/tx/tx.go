@@ -75,10 +75,12 @@ func (t Tx) Serialize() ([]byte, error) {
 
 // 트랜잭션 입력 목록을 직렬화한 결과를 반환하는 함수
 func (t Tx) serializeInputs() ([]byte, error) {
-	result := utils.EncodeVarint(len(t.Inputs)) // 입력 개수
+	inputs := t.Inputs
+
+	result := utils.EncodeVarint(len(inputs)) // 입력 개수
 
 	// 입력 개수만큼 반복하면서 각 입력을 직렬화한 결과를 result에 추가
-	for _, input := range t.Inputs {
+	for _, input := range inputs {
 		s, err := input.Serialize()
 		if err != nil {
 			return nil, err
@@ -92,10 +94,12 @@ func (t Tx) serializeInputs() ([]byte, error) {
 
 // 트랜잭션 출력 목록을 직렬화한 결과를 반환하는 함수
 func (t Tx) serializeOutputs() ([]byte, error) {
-	result := utils.EncodeVarint(len(t.Outputs)) // 출력 개수
+	outputs := t.Outputs
+
+	result := utils.EncodeVarint(len(outputs)) // 출력 개수
 
 	// 출력 개수만큼 반복하면서 각 출력을 직렬화한 결과를 result에 추가
-	for _, output := range t.Outputs {
+	for _, output := range outputs {
 		s, err := output.Serialize()
 		if err != nil {
 			return nil, err
@@ -180,7 +184,13 @@ func (t TxIn) String() string {
 
 // TxIn을 직렬화한 결과를 반환하는 함수
 func (t TxIn) Serialize() ([]byte, error) {
-	result := utils.ReverseBytes(utils.StringToBytes(t.PrevTx))
+	hexPrevTx, err := hex.DecodeString(t.PrevTx)
+	if err != nil {
+		return nil, err
+	}
+
+	result := utils.ReverseBytes(hexPrevTx)
+
 	result = append(result, utils.IntToLittleEndian(t.PrevIndex, 4)...)
 
 	serializedScript, err := t.ScriptSig.Serialize()
@@ -190,6 +200,7 @@ func (t TxIn) Serialize() ([]byte, error) {
 
 	result = append(result, serializedScript...)
 	result = append(result, utils.IntToLittleEndian(t.SeqNo, 4)...)
+
 	return result, nil
 }
 
@@ -317,19 +328,21 @@ func (tf *TxFetcher) Fetch(txID string, testnet, fresh bool) (*Tx, error) {
 
 		if rawHex[4] == 0x00 {
 			rawHex = append(rawHex[:4], rawHex[6:]...)
-			tx, err = ParseTx(rawHex, testnet)
+			parsedTx, err := ParseTx(rawHex, testnet)
 			if err != nil {
 				return nil, err
 			}
-			tx.Locktime = utils.LittleEndianToInt(rawHex[len(rawHex)-4:])
-		} else {
-			tx, err = ParseTx(rawHex, testnet)
-			if err != nil {
-				return nil, err
-			}
-		}
+			parsedTx.Locktime = utils.LittleEndianToInt(rawHex[len(rawHex)-4:])
 
-		fmt.Println(tx)
+			tx = parsedTx
+		} else {
+			parsedTx, err := ParseTx(rawHex, testnet)
+			if err != nil {
+				return nil, err
+			}
+
+			tx = parsedTx
+		}
 
 		// 가져온 트랜잭션의 ID가 txID와 다르면 에러를 반환
 		if tx.ID() != txID {
@@ -338,6 +351,7 @@ func (tf *TxFetcher) Fetch(txID string, testnet, fresh bool) (*Tx, error) {
 
 		tf.cache[txID] = tx // 가져온 트랜잭션을 tf.cache에 저장
 	}
+
 	tf.cache[txID].Testnet = testnet // 테스트넷 여부를 설정
 	return tf.cache[txID], nil       // 트랜잭션을 반환
 }
