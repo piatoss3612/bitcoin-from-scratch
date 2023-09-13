@@ -44,40 +44,70 @@ func (t Tx) ID() string {
 
 // 트랜잭션의 해시를 반환하는 함수
 func (t Tx) Hash() []byte {
-	return utils.ReverseBytes(utils.Hash256(t.Serialize()))
+	s, err := t.Serialize()
+	if err != nil {
+		panic(err)
+	}
+
+	return utils.ReverseBytes(utils.Hash256(s))
 }
 
 // 트랜잭션을 직렬화한 결과를 반환하는 함수
-func (t Tx) Serialize() []byte {
-	result := utils.IntToLittleEndian(t.Version, 4)                    // 버전
-	result = append(result, t.serializeInputs()...)                    // 입력 목록
-	result = append(result, t.serializeOutputs()...)                   // 출력 목록
+func (t Tx) Serialize() ([]byte, error) {
+	result := utils.IntToLittleEndian(t.Version, 4) // 버전
+
+	in, err := t.serializeInputs() // 입력 목록
+	if err != nil {
+		return nil, err
+	}
+
+	out, err := t.serializeOutputs() // 출력 목록
+	if err != nil {
+		return nil, err
+	}
+
+	result = append(result, in...)
+	result = append(result, out...)
 	result = append(result, utils.IntToLittleEndian(t.Locktime, 4)...) // 유효 시점
-	return result
+
+	return result, nil
 }
 
 // 트랜잭션 입력 목록을 직렬화한 결과를 반환하는 함수
-func (t Tx) serializeInputs() []byte {
-	result := utils.EncodeVarint(len(t.Inputs)) // 입력 개수
+func (t Tx) serializeInputs() ([]byte, error) {
+	inputs := t.Inputs
+
+	result := utils.EncodeVarint(len(inputs)) // 입력 개수
 
 	// 입력 개수만큼 반복하면서 각 입력을 직렬화한 결과를 result에 추가
-	for _, input := range t.Inputs {
-		result = append(result, input.Serialize()...)
+	for _, input := range inputs {
+		s, err := input.Serialize()
+		if err != nil {
+			return nil, err
+		}
+
+		result = append(result, s...)
 	}
 
-	return result // 직렬화한 결과를 반환
+	return result, nil // 직렬화한 결과를 반환
 }
 
 // 트랜잭션 출력 목록을 직렬화한 결과를 반환하는 함수
-func (t Tx) serializeOutputs() []byte {
-	result := utils.EncodeVarint(len(t.Outputs)) // 출력 개수
+func (t Tx) serializeOutputs() ([]byte, error) {
+	outputs := t.Outputs
+
+	result := utils.EncodeVarint(len(outputs)) // 출력 개수
 
 	// 출력 개수만큼 반복하면서 각 출력을 직렬화한 결과를 result에 추가
-	for _, output := range t.Outputs {
-		result = append(result, output.Serialize()...)
+	for _, output := range outputs {
+		s, err := output.Serialize()
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, s...)
 	}
 
-	return result // 직렬화한 결과를 반환
+	return result, nil // 직렬화한 결과를 반환
 }
 
 // 트랜잭션의 수수료를 반환하는 함수
@@ -136,6 +166,10 @@ func NewTxIn(prevTx string, prevIndex int, scriptSig *script.Script, seqNos ...i
 		SeqNo:     0xffffffff,
 	}
 
+	if scriptSig == nil {
+		tx.ScriptSig = script.New()
+	}
+
 	if len(seqNos) > 0 {
 		tx.SeqNo = seqNos[0]
 	}
@@ -149,12 +183,25 @@ func (t TxIn) String() string {
 }
 
 // TxIn을 직렬화한 결과를 반환하는 함수
-func (t TxIn) Serialize() []byte {
-	result := utils.ReverseBytes(utils.StringToBytes(t.PrevTx))
+func (t TxIn) Serialize() ([]byte, error) {
+	hexPrevTx, err := hex.DecodeString(t.PrevTx)
+	if err != nil {
+		return nil, err
+	}
+
+	result := utils.ReverseBytes(hexPrevTx)
+
 	result = append(result, utils.IntToLittleEndian(t.PrevIndex, 4)...)
-	// TODO: scriptSig를 직렬화한 결과를 result에 추가
+
+	serializedScript, err := t.ScriptSig.Serialize()
+	if err != nil {
+		return nil, err
+	}
+
+	result = append(result, serializedScript...)
 	result = append(result, utils.IntToLittleEndian(t.SeqNo, 4)...)
-	return result
+
+	return result, nil
 }
 
 // TxIn의 이전 트랜잭션을 가져오는 함수
@@ -190,10 +237,16 @@ type TxOut struct {
 
 // TxOut 생성자 함수
 func NewTxOut(amount int, scriptPubKey *script.Script) *TxOut {
-	return &TxOut{
+	out := &TxOut{
 		Amount:       amount,
 		ScriptPubKey: scriptPubKey,
 	}
+
+	if scriptPubKey == nil {
+		out.ScriptPubKey = script.New()
+	}
+
+	return out
 }
 
 // TxOut의 문자열 표현을 반환하는 함수 (fmt.Stringer 인터페이스 구현)
@@ -202,10 +255,17 @@ func (t TxOut) String() string {
 }
 
 // TxOut을 직렬화한 결과를 반환하는 함수
-func (t TxOut) Serialize() []byte {
+func (t TxOut) Serialize() ([]byte, error) {
 	result := utils.IntToLittleEndian(t.Amount, 8)
-	// TODO: scriptPubKey를 직렬화한 결과를 result에 추가
-	return result
+
+	serializedScript, err := t.ScriptPubKey.Serialize()
+	if err != nil {
+		return nil, err
+	}
+
+	result = append(result, serializedScript...)
+
+	return result, nil
 }
 
 // 트랜잭션을 가져오는 구조체
@@ -268,16 +328,20 @@ func (tf *TxFetcher) Fetch(txID string, testnet, fresh bool) (*Tx, error) {
 
 		if rawHex[4] == 0x00 {
 			rawHex = append(rawHex[:4], rawHex[6:]...)
-			tx, err = ParseTx(rawHex, testnet)
+			parsedTx, err := ParseTx(rawHex, testnet)
 			if err != nil {
 				return nil, err
 			}
-			tx.Locktime = utils.LittleEndianToInt(rawHex[len(rawHex)-4:])
+			parsedTx.Locktime = utils.LittleEndianToInt(rawHex[len(rawHex)-4:])
+
+			tx = parsedTx
 		} else {
-			tx, err = ParseTx(rawHex, testnet)
+			parsedTx, err := ParseTx(rawHex, testnet)
 			if err != nil {
 				return nil, err
 			}
+
+			tx = parsedTx
 		}
 
 		// 가져온 트랜잭션의 ID가 txID와 다르면 에러를 반환
@@ -287,6 +351,7 @@ func (tf *TxFetcher) Fetch(txID string, testnet, fresh bool) (*Tx, error) {
 
 		tf.cache[txID] = tx // 가져온 트랜잭션을 tf.cache에 저장
 	}
+
 	tf.cache[txID].Testnet = testnet // 테스트넷 여부를 설정
 	return tf.cache[txID], nil       // 트랜잭션을 반환
 }
