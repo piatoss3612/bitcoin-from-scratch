@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"math/big"
 	"strings"
-	"unsafe"
 )
 
 var base58Alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz" // base58 인코딩에 사용할 문자열
@@ -77,12 +76,14 @@ func BytesToBigInt(b []byte) *big.Int {
 
 // 문자열을 바이트 슬라이스로 변환하는 함수
 func StringToBytes(s string) []byte {
-	return unsafe.Slice(unsafe.StringData(s), len(s))
+	// return unsafe.Slice(unsafe.StringData(s), len(s))
+	return []byte(s)
 }
 
 // 바이트 슬라이스를 문자열로 변환하는 함수
 func BytesToString(b []byte) string {
-	return unsafe.String(unsafe.SliceData(b), len(b))
+	// return unsafe.String(unsafe.SliceData(b), len(b))
+	return string(b)
 }
 
 // 가변 정수를 디코딩하는 함수
