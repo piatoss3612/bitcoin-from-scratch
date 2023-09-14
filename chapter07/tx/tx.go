@@ -242,6 +242,33 @@ func (t Tx) VerifyInput(inputIndex int) (bool, error) {
 	return combined.Evaluate(z), nil // 결합한 스크립트를 평가
 }
 
+// 트랜잭션을 검증하는 함수
+func (t Tx) Verify() (bool, error) {
+	fee, err := t.Fee(NewTxFetcher()) // 수수료를 가져옴
+	if err != nil {
+		return false, err
+	}
+
+	// 수수료가 음수이면 유효하지 않은 트랜잭션
+	if fee < 0 {
+		return false, nil
+	}
+
+	// 트랜잭션의 입력을 검증
+	for i := 0; i < len(t.Inputs); i++ {
+		ok, err := t.VerifyInput(i)
+		if err != nil {
+			return false, err
+		}
+
+		if !ok {
+			return false, nil
+		}
+	}
+
+	return true, nil
+}
+
 // 트랜잭션 입력을 나타내는 구조체
 type TxIn struct {
 	PrevIndex int            // 이전 트랜잭션의 출력 인덱스
