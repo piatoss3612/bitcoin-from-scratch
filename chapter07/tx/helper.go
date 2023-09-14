@@ -7,6 +7,12 @@ import (
 	"encoding/hex"
 )
 
+const (
+	SIGHASH_ALL    = 1
+	SIGHASH_NONE   = 2
+	SIGHASH_SINGLE = 3
+)
+
 // 트랜잭션을 파싱하는 함수
 func ParseTx(b []byte, testnet bool) (*Tx, error) {
 	buf := bytes.NewBuffer(b)

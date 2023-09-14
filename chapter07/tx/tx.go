@@ -33,23 +33,32 @@ func NewTx(version int, inputs []*TxIn, outputs []*TxOut, locktime int, testnet 
 
 // 트랜잭션의 문자열 표현을 반환하는 함수 (fmt.Stringer 인터페이스 구현)
 func (t Tx) String() string {
-	return fmt.Sprintf("tx: %s\nversion: %d\ninputs: %s\noutputs: %s\nlocktime: %d",
-		t.ID(), t.Version, t.Inputs, t.Outputs, t.Locktime)
-}
-
-// 16진수 문자열로 표현된 트랜잭션 ID를 반환하는 함수
-func (t Tx) ID() string {
-	return hex.EncodeToString(t.Hash())
-}
-
-// 트랜잭션의 해시를 반환하는 함수
-func (t Tx) Hash() []byte {
-	s, err := t.Serialize()
+	id, err := t.ID()
 	if err != nil {
 		panic(err)
 	}
 
-	return utils.ReverseBytes(utils.Hash256(s))
+	return fmt.Sprintf("tx: %s\nversion: %d\ninputs: %s\noutputs: %s\nlocktime: %d",
+		id, t.Version, t.Inputs, t.Outputs, t.Locktime)
+}
+
+// 16진수 문자열로 표현된 트랜잭션 ID를 반환하는 함수
+func (t Tx) ID() (string, error) {
+	h, err := t.Hash()
+	if err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(h), nil
+}
+
+// 트랜잭션의 해시를 반환하는 함수
+func (t Tx) Hash() ([]byte, error) {
+	s, err := t.Serialize()
+	if err != nil {
+		return nil, err
+	}
+
+	return utils.ReverseBytes(utils.Hash256(s)), nil
 }
 
 // 트랜잭션을 직렬화한 결과를 반환하는 함수
@@ -147,6 +156,90 @@ func (t Tx) totalOutput() int {
 	}
 
 	return total
+}
+
+// 트랜잭션의 서명해시를 반환하는 함수
+func (t Tx) SigHash(inputIndex int) ([]byte, error) {
+	// 입력 인덱스가 트랜잭션의 입력 개수보다 크면 에러를 반환
+	if inputIndex >= len(t.Inputs) {
+		return nil, fmt.Errorf("input index %d greater than the number of inputs %d", inputIndex, len(t.Inputs))
+	}
+
+	s := utils.IntToLittleEndian(t.Version, 4) // 버전
+
+	in, err := t.serializeInputsForSig(inputIndex) // 입력 목록
+	if err != nil {
+		return nil, err
+	}
+
+	out, err := t.serializeOutputs() // 출력 목록
+	if err != nil {
+		return nil, err
+	}
+
+	s = append(s, in...)
+	s = append(s, out...)
+	s = append(s, utils.IntToLittleEndian(t.Locktime, 4)...)  // 유효 시점
+	s = append(s, utils.IntToLittleEndian(SIGHASH_ALL, 4)...) // SIGHASH_ALL (4바이트)
+
+	return utils.Hash256(s), nil // 해시를 반환
+}
+
+// 서명해시를 만들 때 사용할 입력 목록을 직렬화한 결과를 반환하는 함수
+func (t Tx) serializeInputsForSig(inputIndex int) ([]byte, error) {
+	inputs := t.Inputs
+
+	result := utils.EncodeVarint(len(inputs)) // 입력 개수
+
+	for i, input := range inputs {
+		if i == inputIndex { // 입력 인덱스가 inputIndex와 같으면
+			scriptPubKey, err := input.ScriptPubKey(NewTxFetcher(), t.Testnet) // 이전 트랜잭션 출력의 잠금 스크립트를 가져옴
+			if err != nil {
+				return nil, err
+			}
+
+			newInput := NewTxIn(input.PrevTx, input.PrevIndex, scriptPubKey, input.SeqNo) // 이전 트랜잭션 출력의 잠금 스크립트를 사용하는 새로운 입력을 생성
+			s, err := newInput.Serialize()                                                // 새로운 입력을 직렬화
+			if err != nil {
+				return nil, err
+			}
+
+			result = append(result, s...) // 직렬화한 결과를 result에 추가
+		} else { // 입력 인덱스가 inputIndex와 다르면
+			s, err := input.Serialize() // 입력을 직렬화
+			if err != nil {
+				return nil, err
+			}
+
+			result = append(result, s...) // 직렬화한 결과를 result에 추가
+		}
+	}
+
+	return result, nil // 직렬화한 결과를 반환
+}
+
+// 트랜잭션의 입력을 검증하는 함수
+func (t Tx) VerifyInput(inputIndex int) (bool, error) {
+	if inputIndex >= len(t.Inputs) {
+		return false, fmt.Errorf("input index %d greater than the number of inputs %d", inputIndex, len(t.Inputs))
+	}
+
+	input := t.Inputs[inputIndex] // 입력을 가져옴
+
+	scriptSig := input.ScriptSig                                       // 해제 스크립트
+	scriptPubKey, err := input.ScriptPubKey(NewTxFetcher(), t.Testnet) // 이전 트랜잭션 출력의 잠금 스크립트를 가져옴
+	if err != nil {
+		return false, err
+	}
+
+	z, err := t.SigHash(inputIndex) // 서명해시를 가져옴
+	if err != nil {
+		return false, err
+	}
+
+	combined := scriptSig.Add(scriptPubKey) // 해제 스크립트와 잠금 스크립트를 결합
+
+	return combined.Evaluate(z), nil // 결합한 스크립트를 평가
 }
 
 // 트랜잭션 입력을 나타내는 구조체
@@ -344,9 +437,14 @@ func (tf *TxFetcher) Fetch(txID string, testnet, fresh bool) (*Tx, error) {
 			tx = parsedTx
 		}
 
+		expectedID, err := tx.ID() // 트랜잭션의 ID를 가져옴
+		if err != nil {
+			return nil, err
+		}
+
 		// 가져온 트랜잭션의 ID가 txID와 다르면 에러를 반환
-		if tx.ID() != txID {
-			return nil, fmt.Errorf("tx ID mismatch %s != %s", tx.ID(), txID)
+		if expectedID != txID {
+			return nil, fmt.Errorf("tx ID mismatch %s != %s", expectedID, txID)
 		}
 
 		tf.cache[txID] = tx // 가져온 트랜잭션을 tf.cache에 저장
