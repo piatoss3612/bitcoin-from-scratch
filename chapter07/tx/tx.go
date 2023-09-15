@@ -1,6 +1,7 @@
 package tx
 
 import (
+	"chapter07/ecc"
 	"chapter07/script"
 	"chapter07/utils"
 	"encoding/hex"
@@ -240,6 +241,33 @@ func (t Tx) VerifyInput(inputIndex int) (bool, error) {
 	combined := scriptSig.Add(scriptPubKey) // 해제 스크립트와 잠금 스크립트를 결합
 
 	return combined.Evaluate(z), nil // 결합한 스크립트를 평가
+}
+
+func (t Tx) SignInput(inputIndex int, privateKey ecc.PrivateKey) (bool, error) {
+	if inputIndex >= len(t.Inputs) {
+		return false, fmt.Errorf("input index %d greater than the number of inputs %d", inputIndex, len(t.Inputs))
+	}
+
+	z, err := t.SigHash(inputIndex) // 서명해시를 가져옴
+	if err != nil {
+		return false, err
+	}
+
+	point, err := privateKey.Sign(z) // 서명 생성
+	if err != nil {
+		return false, err
+	}
+
+	der := point.DER() // 서명을 DER 형식으로 직렬화
+
+	sig := append(der, byte(SIGHASH_ALL)) // 직렬화한 서명에 해시 유형을 추가 (SIGHASH_ALL)
+	sec := privateKey.Point().SEC(true)   // 공개 키를 SEC 형식으로 직렬화 (압축)
+
+	scriptSig := script.New(sig, sec) // 해제 스크립트 생성
+
+	t.Inputs[inputIndex].ScriptSig = scriptSig // 트랜잭션의 입력에 해제 스크립트를 설정
+
+	return t.VerifyInput(inputIndex) // 트랜잭션의 입력을 검증
 }
 
 // 트랜잭션을 검증하는 함수
