@@ -173,17 +173,22 @@ func (t Tx) SigHash(inputIndex int) ([]byte, error) {
 		return nil, err
 	}
 
+	s = append(s, in...)
+
 	out, err := t.serializeOutputs() // 출력 목록
 	if err != nil {
 		return nil, err
 	}
 
-	s = append(s, in...)
 	s = append(s, out...)
-	s = append(s, utils.IntToLittleEndian(t.Locktime, 4)...)  // 유효 시점
+
+	s = append(s, utils.IntToLittleEndian(t.Locktime, 4)...) // 유효 시점
+
 	s = append(s, utils.IntToLittleEndian(SIGHASH_ALL, 4)...) // SIGHASH_ALL (4바이트)
 
-	return utils.Hash256(s), nil // 해시를 반환
+	h256 := utils.Hash256(s) // 해시를 생성
+
+	return h256, nil // 해시를 반환
 }
 
 // 서명해시를 만들 때 사용할 입력 목록을 직렬화한 결과를 반환하는 함수
@@ -207,7 +212,7 @@ func (t Tx) serializeInputsForSig(inputIndex int) ([]byte, error) {
 
 			result = append(result, s...) // 직렬화한 결과를 result에 추가
 		} else { // 입력 인덱스가 inputIndex와 다르면
-			s, err := input.Serialize() // 입력을 직렬화
+			s, err := NewTxIn(input.PrevTx, input.PrevIndex, nil, input.SeqNo).Serialize() // 해제 스크립트가 비어있는 새로운 입력을 생성하고 직렬화
 			if err != nil {
 				return nil, err
 			}
@@ -227,11 +232,14 @@ func (t Tx) VerifyInput(inputIndex int) (bool, error) {
 
 	input := t.Inputs[inputIndex] // 입력을 가져옴
 
-	scriptSig := input.ScriptSig                                       // 해제 스크립트
+	scriptSig := input.ScriptSig // 해제 스크립트
+
 	scriptPubKey, err := input.ScriptPubKey(NewTxFetcher(), t.Testnet) // 이전 트랜잭션 출력의 잠금 스크립트를 가져옴
 	if err != nil {
 		return false, err
 	}
+
+	fmt.Println(scriptPubKey)
 
 	z, err := t.SigHash(inputIndex) // 서명해시를 가져옴
 	if err != nil {
@@ -240,10 +248,13 @@ func (t Tx) VerifyInput(inputIndex int) (bool, error) {
 
 	combined := scriptSig.Add(scriptPubKey) // 해제 스크립트와 잠금 스크립트를 결합
 
+	fmt.Println(combined, len(combined.Cmds))
+
 	return combined.Evaluate(z), nil // 결합한 스크립트를 평가
 }
 
-func (t Tx) SignInput(inputIndex int, privateKey ecc.PrivateKey) (bool, error) {
+// 트랜잭션의 입력에 서명하는 함수
+func (t Tx) SignInput(inputIndex int, privateKey ecc.PrivateKey, compressed bool) (bool, error) {
 	if inputIndex >= len(t.Inputs) {
 		return false, fmt.Errorf("input index %d greater than the number of inputs %d", inputIndex, len(t.Inputs))
 	}
@@ -260,8 +271,8 @@ func (t Tx) SignInput(inputIndex int, privateKey ecc.PrivateKey) (bool, error) {
 
 	der := point.DER() // 서명을 DER 형식으로 직렬화
 
-	sig := append(der, byte(SIGHASH_ALL)) // 직렬화한 서명에 해시 유형을 추가 (SIGHASH_ALL)
-	sec := privateKey.Point().SEC(true)   // 공개 키를 SEC 형식으로 직렬화 (압축)
+	sig := append(der, byte(SIGHASH_ALL))     // 직렬화한 서명에 해시 유형을 추가 (SIGHASH_ALL)
+	sec := privateKey.Point().SEC(compressed) // 공개 키를 SEC 형식으로 직렬화 (압축)
 
 	scriptSig := script.New(sig, sec) // 해제 스크립트 생성
 

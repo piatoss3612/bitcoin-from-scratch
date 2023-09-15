@@ -98,7 +98,8 @@ func (pvk s256PrivateKey) String() string {
 
 // secp256k1 개인키로 서명을 생성하는 함수
 func (pvk s256PrivateKey) Sign(z []byte) (Signature, error) {
-	bigZ := utils.BytesToBigInt(z)       // 서명할 메시지를 big.Int로 변환
+	bigZ := utils.BytesToBigInt(z) // 서명할 메시지를 big.Int로 변환
+
 	e := utils.BytesToBigInt(pvk.secret) // 개인키를 big.Int로 변환
 
 	k, err := pvk.deterministicK(bigZ) // RFC6979 표준에 따라 k값을 생성
@@ -137,34 +138,34 @@ func (pvk s256PrivateKey) deterministicK(z *big.Int) (*big.Int, error) {
 		z.Sub(z, N)
 	}
 
-	zBytes := z.Bytes()
-	secreteBytes := pvk.secret
+	zBytes := z.FillBytes(make([]byte, 32))
+	secreteBytes := big.NewInt(0).SetBytes(pvk.secret).FillBytes(make([]byte, 32)) // 개인키를 big.Int로 변환한 뒤, 32바이트로 채움
 
 	alg := sha256.New
 
-	k = pvk.mac(alg, k, append(append(v, 0x00), append(secreteBytes, zBytes...)...), k)
-	v = pvk.mac(alg, k, v, v)
+	k = pvk.mac(alg, k, append(append(v, 0x00), append(secreteBytes, zBytes...)...))
+	v = pvk.mac(alg, k, v)
 
-	k = pvk.mac(alg, k, append(append(v, 0x01), append(secreteBytes, zBytes...)...), k)
-	v = pvk.mac(alg, k, v, v)
+	k = pvk.mac(alg, k, append(append(v, 0x01), append(secreteBytes, zBytes...)...))
+	v = pvk.mac(alg, k, v)
 
 	for {
-		v = pvk.mac(alg, k, v, v)
+		v = pvk.mac(alg, k, v)
 		candidate := big.NewInt(0).SetBytes(v)
 
-		if candidate.Cmp(big.NewInt(0)) == 1 && candidate.Cmp(N) == -1 {
+		if candidate.Cmp(big.NewInt(1)) >= 0 && candidate.Cmp(N) == -1 {
 			return candidate, nil
 		}
 
-		k = pvk.mac(alg, k, append(v, 0x00), k)
-		v = pvk.mac(alg, k, v, v)
+		k = pvk.mac(alg, k, append(v, 0x00))
+		v = pvk.mac(alg, k, v)
 	}
 }
 
-func (pvk s256PrivateKey) mac(alg func() hash.Hash, k, m, buf []byte) []byte {
+func (pvk s256PrivateKey) mac(alg func() hash.Hash, k, m []byte) []byte {
 	h := hmac.New(alg, k)
 	h.Write(m)
-	return h.Sum(buf[:0])
+	return h.Sum(nil)
 }
 
 // secp256k1 개인키의 점을 반환하는 함수
