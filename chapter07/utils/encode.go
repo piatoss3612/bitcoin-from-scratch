@@ -1,7 +1,9 @@
 package utils
 
 import (
+	"bytes"
 	"encoding/binary"
+	"fmt"
 	"math/big"
 	"strings"
 )
@@ -42,6 +44,30 @@ func EncodeBase58(s []byte) string {
 	resultBytes := ReverseBytes(StringToBytes(result.String()))
 
 	return BytesToString((resultBytes))
+}
+
+// base58로 인코딩된 문자열을 바이트 슬라이스로 디코딩하는 함수
+func DecodeBase58(s string) ([]byte, error) {
+	result := big.NewInt(0) // 결과를 저장할 big.Int
+
+	for _, c := range s {
+		// base58Alphabet에서 c의 인덱스를 찾음
+		charIndex := strings.IndexByte(base58Alphabet, byte(c))
+
+		// 58을 곱하고 인덱스를 더함
+		result.Mul(result, big.NewInt(58))
+		result.Add(result, big.NewInt(int64(charIndex)))
+	}
+
+	combined := result.FillBytes(make([]byte, 25)) // 크기가 25인 바이트 슬라이스를 만들어 big.Int를 채움
+	checksum := combined[len(combined)-4:]         // 마지막 4바이트는 체크섬
+
+	// 체크섬 검사
+	if !bytes.Equal(Hash256(combined[:len(combined)-4])[:4], checksum) {
+		return nil, fmt.Errorf("bad address: %s %s", checksum, Hash256(combined[:len(combined)-4])[:4])
+	}
+
+	return combined[1 : len(combined)-4], nil // prefix를 제외하고 체크섬을 제외한 바이트 슬라이스를 반환
 }
 
 // 바이트 슬라이스를 뒤집는 함수

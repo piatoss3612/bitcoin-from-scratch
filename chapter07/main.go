@@ -2,6 +2,7 @@ package main
 
 import (
 	"chapter07/ecc"
+	"chapter07/script"
 	"chapter07/tx"
 	"chapter07/utils"
 	"encoding/hex"
@@ -10,9 +11,10 @@ import (
 )
 
 func main() {
-	checkFee()
-	checkSig()
-	checkModifiedTx()
+	// checkFee()
+	// checkSig()
+	// checkModifiedTx()
+	checkConstructTx()
 }
 
 func checkFee() {
@@ -63,4 +65,24 @@ func checkModifiedTx() {
 	}
 
 	fmt.Println(ok)
+}
+
+func checkConstructTx() {
+	prevTx := "0d6fe5213c0b3291f208cba8bfb59b7476dffacc4e5cb66f6eb20a080843a299"
+	prevIndex := 13
+	txIn := tx.NewTxIn(prevTx, prevIndex, nil)
+
+	changeAmount := int(0.33 * 1e8)
+	changeH160, _ := utils.DecodeBase58("mzx5YhAH9kNHtcN481u6WkjeHjYtVeKVh2")
+	changeScript := script.NewP2PKHScript(changeH160)
+	changeOutput := tx.NewTxOut(changeAmount, changeScript)
+
+	targetAmount := int(0.1 * 1e8)
+	targetH160, _ := utils.DecodeBase58("mnrVtF8DWjMu839VW3rBfgYaAfKk8983Xf")
+	targetScript := script.NewP2PKHScript(targetH160)
+	targetOutput := tx.NewTxOut(targetAmount, targetScript)
+
+	txObj := tx.NewTx(1, []*tx.TxIn{txIn}, []*tx.TxOut{changeOutput, targetOutput}, 0, true)
+	fmt.Println(txObj)
+
 }

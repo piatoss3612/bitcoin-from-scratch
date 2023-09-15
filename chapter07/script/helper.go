@@ -50,3 +50,13 @@ func Parse(b []byte) (*Script, int, error) {
 	// 스크립트와 읽은 바이트 수, 에러를 반환
 	return New(cmds...), read + length, nil
 }
+
+func NewP2PKHScript(h160 []byte) *Script {
+	return New(
+		0x76, // OP_DUP
+		0xa9, // OP_HASH160
+		h160, // 20바이트의 데이터
+		0x88, // OP_EQUALVERIFY
+		0xac, // OP_CHECKSIG
+	)
+}
