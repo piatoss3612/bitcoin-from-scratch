@@ -274,7 +274,11 @@ func (o OpCode) Valid() bool {
 }
 
 func (o OpCode) String() string {
-	return OpCodeNames[o]
+	s, ok := OpCodeNames[o]
+	if !ok {
+		return "UNKNOWN"
+	}
+	return s
 }
 
 func EncodeNum(num int) []byte {

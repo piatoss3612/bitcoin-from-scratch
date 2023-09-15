@@ -4,6 +4,7 @@ import (
 	"chapter07/utils"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"strings"
 )
 
@@ -79,7 +80,7 @@ func (s Script) Add(other *Script) *Script {
 }
 
 // 스크립트 명령어 집합을 순회하면서 스크립트가 유효한지 확인
-func (s *Script) Evaluate(z []byte) bool {
+func (s *Script) Evaluate(z []byte) (bool, error) {
 	cmds := s.Cmds      // 스크립트 명령어 집합 복사
 	stack := []any{}    // 스택
 	altstack := []any{} // 대체 스택
@@ -97,38 +98,38 @@ func (s *Script) Evaluate(z []byte) bool {
 			if cmd > 98 && cmd < 101 {
 				fn, ok := operation.(func(*[]any, *[]any) bool) // 연산자에 해당하는 함수가 func(*[]any, *[]any) bool 타입인지 확인
 				if !ok {
-					return false
+					return false, fmt.Errorf("operation is not valid: %s", OpCode(cmd).String())
 				}
 
 				if !fn(&stack, &cmds) { // stack과 cmds를 인자로 연산자에 해당하는 함수 호출
-					return false
+					return false, fmt.Errorf("failed to evaluate %s", OpCode(cmd).String())
 				}
 			} else if cmd > 106 && cmd < 109 {
 				fn, ok := operation.(func(*[]any, *[]any) bool) // 연산자에 해당하는 함수가 func(*[]any, *[]any) bool 타입인지 확인
 				if !ok {
-					return false
+					return false, fmt.Errorf("operation is not valid: %s", OpCode(cmd).String())
 				}
 
 				if !fn(&stack, &altstack) { // stack과 altstack을 인자로 연산자에 해당하는 함수 호출
-					return false
+					return false, fmt.Errorf("failed to evaluate %s", OpCode(cmd).String())
 				}
 			} else if cmd > 171 && cmd < 176 {
 				fn, ok := operation.(func(*[]any, []byte) bool) // 연산자에 해당하는 함수가 func(*[]any, []byte) bool 타입인지 확인
 				if !ok {
-					return false
+					return false, fmt.Errorf("operation is not valid: %s", OpCode(cmd).String())
 				}
 
 				if !fn(&stack, z) { // stack과 z를 인자로 연산자에 해당하는 함수 호출
-					return false
+					return false, fmt.Errorf("failed to evaluate %s", OpCode(cmd).String())
 				}
 			} else {
 				fn, ok := operation.(func(*[]any) bool) // 연산자에 해당하는 함수가 func(*[]any) bool 타입인지 확인
 				if !ok {
-					return false
+					return false, fmt.Errorf("operation is not valid: %s", OpCode(cmd).String())
 				}
 
 				if !fn(&stack) { // stack을 인자로 연산자에 해당하는 함수 호출
-					return false
+					return false, fmt.Errorf("failed to evaluate %s", OpCode(cmd).String())
 				}
 			}
 		// 스크립트 명령어가 []byte 타입인 경우: 스택에 원소를 추가
@@ -136,30 +137,30 @@ func (s *Script) Evaluate(z []byte) bool {
 			stack = append(stack, cmd)
 		// 그 외의 경우: 에러 반환
 		default:
-			return false
+			return false, errors.New("invalid cmd")
 		}
 	}
 
 	// 스택이 비어있는 경우: 스크립트가 유효하지 않음
 	if len(stack) == 0 {
-		return false
+		return false, nil
 	}
 
 	switch popped := stack[len(stack)-1].(type) {
 	// 스택의 마지막 원소가 int 타입인 경우: 해당 원소가 0이 아닌 경우 스크립트가 유효함
 	case int:
 		if popped == 0 {
-			return false
+			return false, nil
 		}
 	// 스택의 마지막 원소가 []byte 타입인 경우: 해당 원소가 비어있지 않은 경우 스크립트가 유효함
 	case []byte:
 		if len(popped) == 0 {
-			return false
+			return false, nil
 		}
 	// 그 외의 경우: 에러 반환
 	default:
-		return false
+		return false, errors.New("invalid stack")
 	}
 
-	return true
+	return true, nil
 }

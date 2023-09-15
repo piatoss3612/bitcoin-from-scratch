@@ -250,7 +250,7 @@ func (t Tx) VerifyInput(inputIndex int) (bool, error) {
 
 	fmt.Println(combined, len(combined.Cmds))
 
-	return combined.Evaluate(z), nil // 결합한 스크립트를 평가
+	return combined.Evaluate(z) // 결합한 스크립트를 평가
 }
 
 // 트랜잭션의 입력에 서명하는 함수
