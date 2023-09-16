@@ -133,37 +133,37 @@ func checkSignInput() {
 }
 
 func checkGenTestnetTx() {
-	secret := utils.LittleEndianToBigInt(utils.Hash256(utils.StringToBytes("piatoss rules the world")))
+	secret := utils.LittleEndianToBigInt(utils.Hash256(utils.StringToBytes("piatoss rules the world"))) // 개인 키 생성
 	privateKey, _ := ecc.NewS256PrivateKey(secret.Bytes())
 
 	address := privateKey.Point().Address(true, true)
 
-	prevTx := "e770e0b481166da7d0d139c855e86633a12dbd4fa9b97f33a31fc9a458f8ddd7"
-	prevIndex := 0
+	prevTx := "e770e0b481166da7d0d139c855e86633a12dbd4fa9b97f33a31fc9a458f8ddd7" // 이전 트랜잭션 ID
+	prevIndex := 0                                                               // 이전 트랜잭션의 출력 인덱스
 	txIn := tx.NewTxIn(prevTx, prevIndex, nil)
 
-	balance := 1193538
+	balance := 1193538 // 잔고
 
-	changeAmount := balance - (balance * 6 / 10) // 40% of balance
-	changeH160, _ := utils.DecodeBase58(address)
-	changeScript := script.NewP2PKHScript(changeH160)
-	changeOutput := tx.NewTxOut(changeAmount, changeScript)
+	changeAmount := balance - (balance * 6 / 10)            // 잔액
+	changeH160, _ := utils.DecodeBase58(address)            // 잔액을 받을 주소
+	changeScript := script.NewP2PKHScript(changeH160)       // p2pkh 잠금 스크립트 생성
+	changeOutput := tx.NewTxOut(changeAmount, changeScript) // 트랜잭션 출력 생성
 
-	targetAmount := balance * 6 / 10 // 60% of balance
-	targetH160, _ := utils.DecodeBase58("mwJn1YPMq7y5F8J3LkC5Hxg9PHyZ5K4cFv")
-	targetScript := script.NewP2PKHScript(targetH160)
-	targetOutput := tx.NewTxOut(targetAmount, targetScript)
+	targetAmount := balance * 6 / 10                                          // 사용할 금액
+	targetH160, _ := utils.DecodeBase58("mwJn1YPMq7y5F8J3LkC5Hxg9PHyZ5K4cFv") // 받을 주소
+	targetScript := script.NewP2PKHScript(targetH160)                         // p2pkh 잠금 스크립트 생성
+	targetOutput := tx.NewTxOut(targetAmount, targetScript)                   // 트랜잭션 출력 생성
 
-	txObj := tx.NewTx(1, []*tx.TxIn{txIn}, []*tx.TxOut{changeOutput, targetOutput}, 0, true)
+	txObj := tx.NewTx(1, []*tx.TxIn{txIn}, []*tx.TxOut{changeOutput, targetOutput}, 0, true) // 트랜잭션 생성
 
-	ok, err := txObj.SignInput(0, privateKey, true)
+	ok, err := txObj.SignInput(0, privateKey, true) // 서명 생성
 	if err != nil {
 		panic(err)
 	}
 
 	fmt.Println(ok)
 
-	serializedTx, err := txObj.Serialize()
+	serializedTx, err := txObj.Serialize() // 트랜잭션 직렬화
 	if err != nil {
 		panic(err)
 	}
