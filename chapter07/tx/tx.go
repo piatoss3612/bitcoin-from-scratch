@@ -239,16 +239,12 @@ func (t Tx) VerifyInput(inputIndex int) (bool, error) {
 		return false, err
 	}
 
-	fmt.Println(scriptPubKey)
-
 	z, err := t.SigHash(inputIndex) // 서명해시를 가져옴
 	if err != nil {
 		return false, err
 	}
 
 	combined := scriptSig.Add(scriptPubKey) // 해제 스크립트와 잠금 스크립트를 결합
-
-	fmt.Println(combined, len(combined.Cmds))
 
 	return combined.Evaluate(z) // 결합한 스크립트를 평가
 }

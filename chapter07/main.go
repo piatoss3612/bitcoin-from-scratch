@@ -17,7 +17,8 @@ func main() {
 	// checkModifiedTx()
 	// checkGenTx()
 	// checkGenScriptSig()
-	checkSignInput()
+	// checkSignInput()
+	checkGenTestnetTx()
 }
 
 func checkFee() {
@@ -121,12 +122,51 @@ func checkSignInput() {
 
 	fmt.Println(parsedTx.Inputs[0].ScriptSig)
 
-	privateKey, _ := ecc.NewS256PrivateKey(big.NewInt(8675309).Bytes())
+	privateKey, _ := ecc.NewS256PrivateKey(big.NewInt(8675309).Bytes()) // this private key might invalid for mainnet transaction
 
 	ok, err := parsedTx.SignInput(0, privateKey, true)
 	if err != nil {
 		panic(err)
 	}
 
+	fmt.Println(ok) // false
+}
+
+func checkGenTestnetTx() {
+	secret := utils.LittleEndianToBigInt(utils.Hash256(utils.StringToBytes("piatoss rules the world")))
+	privateKey, _ := ecc.NewS256PrivateKey(secret.Bytes())
+
+	address := privateKey.Point().Address(true, true)
+
+	prevTx := "e770e0b481166da7d0d139c855e86633a12dbd4fa9b97f33a31fc9a458f8ddd7"
+	prevIndex := 0
+	txIn := tx.NewTxIn(prevTx, prevIndex, nil)
+
+	balance := 1193538
+
+	changeAmount := balance - (balance * 6 / 10) // 40% of balance
+	changeH160, _ := utils.DecodeBase58(address)
+	changeScript := script.NewP2PKHScript(changeH160)
+	changeOutput := tx.NewTxOut(changeAmount, changeScript)
+
+	targetAmount := balance * 6 / 10 // 60% of balance
+	targetH160, _ := utils.DecodeBase58("mwJn1YPMq7y5F8J3LkC5Hxg9PHyZ5K4cFv")
+	targetScript := script.NewP2PKHScript(targetH160)
+	targetOutput := tx.NewTxOut(targetAmount, targetScript)
+
+	txObj := tx.NewTx(1, []*tx.TxIn{txIn}, []*tx.TxOut{changeOutput, targetOutput}, 0, true)
+
+	ok, err := txObj.SignInput(0, privateKey, true)
+	if err != nil {
+		panic(err)
+	}
+
 	fmt.Println(ok)
+
+	serializedTx, err := txObj.Serialize()
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(hex.EncodeToString(serializedTx))
 }

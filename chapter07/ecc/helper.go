@@ -161,7 +161,7 @@ func ParseSignature(der []byte) (Signature, error) {
 	length := buf.Next(1)[0] // 서명의 길이
 
 	// 서명의 길이가 der의 길이와 일치하는지 확인
-	if int(length)+2 != len(der) {
+	if int(length)+2 > len(der) {
 		return nil, errors.New("invalid length")
 	}
 
@@ -181,10 +181,10 @@ func ParseSignature(der []byte) (Signature, error) {
 	sLength := buf.Next(1)[0]   // s의 길이
 	s := buf.Next(int(sLength)) // s
 
-	// 서명의 길이가 der의 길이와 일치하는지 확인
-	if len(der) != 6+int(rLength)+int(sLength) {
-		return nil, errors.New("invalid signature")
-	}
+	// // 서명의 길이가 der의 길이와 일치하는지 확인
+	// if len(der) < 6+int(rLength)+int(sLength) {
+	// 	return nil, errors.New("invalid signature")
+	// }
 
 	// S256Signature 타입의 인스턴스를 생성하여 반환
 	return NewS256Signature(
