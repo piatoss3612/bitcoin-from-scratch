@@ -1475,8 +1475,95 @@ func OpCheckSigVerify(s *[]any, z []byte) bool {
 }
 
 func OpCheckMultiSig(s *[]any, z []byte) bool {
-	// TODO: implement
-	panic("not implemented")
+	if len(*s) < 1 {
+		return false
+	}
+
+	n, ok := (*s)[len(*s)-1].(int) // n
+	if !ok {
+		return false
+	}
+	*s = (*s)[:len(*s)-1]
+
+	if len(*s) < n+1 {
+		return false
+	}
+
+	pubKeys := make([][]byte, n) // pubkeys
+
+	for i := 0; i < n; i++ {
+		pubKey, ok := (*s)[len(*s)-1].([]byte)
+		if !ok {
+			return false
+		}
+		*s = (*s)[:len(*s)-1]
+		pubKeys[i] = pubKey
+	}
+
+	m, ok := (*s)[len(*s)-1].(int) // m
+	if !ok {
+		return false
+	}
+
+	if len(*s) < m+1 {
+		return false
+	}
+
+	derSigs := make([][]byte, m) // der sigs
+
+	for i := 0; i < m; i++ {
+		derSig, ok := (*s)[len(*s)-1].([]byte)
+		if !ok {
+			return false
+		}
+		*s = (*s)[:len(*s)-1]
+		derSigs[i] = derSig[:len(derSig)-1] // remove the sighash type
+	}
+
+	*s = (*s)[:len(*s)-1] // pop off the 0
+
+	points := make([]ecc.Point, n)   // points
+	sigs := make([]ecc.Signature, m) // sigs
+
+	for i := 0; i < n; i++ {
+		point, err := ecc.ParsePoint(pubKeys[i])
+		if err != nil {
+			log.Println("line 1531:", err)
+			return false
+		}
+		points[i] = point
+	}
+
+	for i := 0; i < m; i++ {
+		sig, err := ecc.ParseSignature(derSigs[i])
+		if err != nil {
+			log.Println("line 1540:", err)
+			return false
+		}
+		sigs[i] = sig
+	}
+
+	// check that all the signatures are valid
+	for _, sig := range sigs {
+		for len(points) > 0 {
+			point := points[0]
+			points = points[1:]
+
+			ok, err := point.Verify(z, sig)
+			if err != nil {
+				log.Println("line 1554:", err)
+				return false
+			}
+
+			if ok {
+				break
+			}
+		}
+	}
+
+	*s = append(*s, EncodeNum(1))
+
+	return true
 }
 
 func OpCheckMultiSigVerify(s *[]any, z []byte) bool {
