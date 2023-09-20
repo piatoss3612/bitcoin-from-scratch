@@ -34,3 +34,25 @@ func Sha256(b []byte) []byte {
 	_, _ = h.Write(b)
 	return h.Sum(nil)
 }
+
+// hash160 값을 p2pkh 주소로 변환하는 함수
+func H160ToP2pkhAddress(h160 []byte, testnet bool) string {
+	var prefix byte
+	if testnet {
+		prefix = 0x6f
+	} else {
+		prefix = 0x00
+	}
+	return EncodeBase58Checksum(append([]byte{prefix}, h160...))
+}
+
+// hash160 값을 p2sh 주소로 변환하는 함수
+func H160ToP2shAddress(h160 []byte, testnet bool) string {
+	var prefix byte
+	if testnet {
+		prefix = 0xc4
+	} else {
+		prefix = 0x05
+	}
+	return EncodeBase58Checksum(append([]byte{prefix}, h160...))
+}

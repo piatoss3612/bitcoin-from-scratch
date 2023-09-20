@@ -81,7 +81,8 @@ func (s Script) Add(other *Script) *Script {
 
 // 스크립트 명령어 집합을 순회하면서 스크립트가 유효한지 확인
 func (s *Script) Evaluate(z []byte) (bool, error) {
-	cmds := s.Cmds      // 스크립트 명령어 집합 복사
+	cmds := make([]any, len(s.Cmds))
+	copy(cmds, s.Cmds)  // 스크립트 명령어 집합 복사
 	stack := []any{}    // 스택
 	altstack := []any{} // 대체 스택
 
@@ -135,6 +136,41 @@ func (s *Script) Evaluate(z []byte) (bool, error) {
 		// 스크립트 명령어가 []byte 타입인 경우: 스택에 원소를 추가
 		case []byte:
 			stack = append(stack, cmd)
+
+			// cmds 안에 3개의 명령어가 남아있고 BIP0016에서 규정한 특별 패턴에 해당하는 경우
+			if len(cmds) == 3 {
+				// cmds의 첫 번째 원소가 OP_HASH160, cmds의 두 번째 원소가 20바이트인 []byte 타입, cmds의 세 번째 원소가 OP_EQUAL인지 확인
+				opCodeH160, ok1 := cmds[0].(int)
+				h160, ok2 := cmds[1].([]byte)
+				opCodeEqual, ok3 := cmds[2].(int)
+
+				if ok1 && ok2 && ok3 && opCodeH160 == 0xa9 && len(h160) == 20 && opCodeEqual == 0x87 {
+					cmds = cmds[3:] // cmds에서 3개의 명령어 제거
+
+					if !OpHash160(&stack) {
+						return false, errors.New("failed to evaluate OP_HASH160")
+					}
+
+					stack = append(stack, h160) // 스택에 h160 추가
+
+					if !OpEqual(&stack) {
+						return false, errors.New("failed to evaluate OP_EQUAL")
+					}
+
+					if !OpVerify(&stack) {
+						return false, errors.New("failed to evaluate OP_VERIFY")
+					}
+
+					redeemScript := append(utils.EncodeVarint(len(cmd)), cmd...)
+
+					script, _, err := Parse(redeemScript) // redeemScript 파싱
+					if err != nil {
+						return false, err
+					}
+
+					cmds = append(script.Cmds, cmds...) // cmds에 스크립트 명령어 집합 추가
+				}
+			}
 		// 그 외의 경우: 에러 반환
 		default:
 			return false, errors.New("invalid cmd")
