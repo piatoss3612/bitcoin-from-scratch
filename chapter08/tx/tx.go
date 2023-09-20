@@ -160,7 +160,9 @@ func (t Tx) totalOutput() int {
 }
 
 // 트랜잭션의 서명해시를 반환하는 함수
-func (t Tx) SigHash(inputIndex int) ([]byte, error) {
+// inputIndex는 서명해시를 만들 때 사용할 입력의 인덱스
+// redeemScripts는 리딤 스크립트 목록
+func (t Tx) SigHash(inputIndex int, redeemScripts ...*script.Script) ([]byte, error) {
 	// 입력 인덱스가 트랜잭션의 입력 개수보다 크면 에러를 반환
 	if inputIndex >= len(t.Inputs) {
 		return nil, fmt.Errorf("input index %d greater than the number of inputs %d", inputIndex, len(t.Inputs))
@@ -168,7 +170,7 @@ func (t Tx) SigHash(inputIndex int) ([]byte, error) {
 
 	s := utils.IntToLittleEndian(t.Version, 4) // 버전
 
-	in, err := t.serializeInputsForSig(inputIndex) // 입력 목록
+	in, err := t.serializeInputsForSig(inputIndex, redeemScripts...) // 입력 목록, 입력의 인덱스와 리딤 스크립트 목록을 사용
 	if err != nil {
 		return nil, err
 	}
@@ -192,33 +194,33 @@ func (t Tx) SigHash(inputIndex int) ([]byte, error) {
 }
 
 // 서명해시를 만들 때 사용할 입력 목록을 직렬화한 결과를 반환하는 함수
-func (t Tx) serializeInputsForSig(inputIndex int) ([]byte, error) {
+func (t Tx) serializeInputsForSig(inputIndex int, redeemScripts ...*script.Script) ([]byte, error) {
 	inputs := t.Inputs
 
 	result := utils.EncodeVarint(len(inputs)) // 입력 개수
 
 	for i, input := range inputs {
+		var scriptSig *script.Script // 해제 스크립트, 기본값은 nil
+
 		if i == inputIndex { // 입력 인덱스가 inputIndex와 같으면
-			scriptPubKey, err := input.ScriptPubKey(NewTxFetcher(), t.Testnet) // 이전 트랜잭션 출력의 잠금 스크립트를 가져옴
-			if err != nil {
-				return nil, err
-			}
+			if len(redeemScripts) > 0 { // 리딤 스크립트가 있으면
+				scriptSig = redeemScripts[0] // 리딤 스크립트를 사용
+			} else {
+				scriptPubKey, err := input.ScriptPubKey(NewTxFetcher(), t.Testnet) // 이전 트랜잭션 출력의 잠금 스크립트를 가져옴
+				if err != nil {
+					return nil, err
+				}
 
-			newInput := NewTxIn(input.PrevTx, input.PrevIndex, scriptPubKey, input.SeqNo) // 이전 트랜잭션 출력의 잠금 스크립트를 사용하는 새로운 입력을 생성
-			s, err := newInput.Serialize()                                                // 새로운 입력을 직렬화
-			if err != nil {
-				return nil, err
+				scriptSig = scriptPubKey // 이전 트랜잭션 출력의 잠금 스크립트를 사용
 			}
-
-			result = append(result, s...) // 직렬화한 결과를 result에 추가
-		} else { // 입력 인덱스가 inputIndex와 다르면
-			s, err := NewTxIn(input.PrevTx, input.PrevIndex, nil, input.SeqNo).Serialize() // 해제 스크립트가 비어있는 새로운 입력을 생성하고 직렬화
-			if err != nil {
-				return nil, err
-			}
-
-			result = append(result, s...) // 직렬화한 결과를 result에 추가
 		}
+
+		s, err := NewTxIn(input.PrevTx, input.PrevIndex, scriptSig, input.SeqNo).Serialize() // scriptSig를 사용하는 새로운 입력을 생성하고 직렬화
+		if err != nil {
+			return nil, err
+		}
+
+		result = append(result, s...) // 직렬화한 결과를 result에 추가
 	}
 
 	return result, nil // 직렬화한 결과를 반환
@@ -239,7 +241,23 @@ func (t Tx) VerifyInput(inputIndex int) (bool, error) {
 		return false, err
 	}
 
-	z, err := t.SigHash(inputIndex) // 서명해시를 가져옴
+	var redeemScripts []*script.Script // 리딤 스크립트 목록
+
+	if script.IsP2shScriptPubkey(scriptPubKey.Cmds) { // 이전 트랜잭션 출력의 잠금 스크립트가 P2SH 스크립트인 경우
+		rawRedeem, ok := scriptSig.Cmds[len(scriptSig.Cmds)-1].([]byte) // 해제 스크립트의 마지막 원소가 리딤 스크립트
+		if !ok {
+			return false, fmt.Errorf("last element should be the redeem script")
+		}
+
+		redeemScript, _, err := script.Parse(append([]byte{byte(len(rawRedeem))}, rawRedeem...)) // 리딤 스크립트 파싱
+		if err != nil {
+			return false, err
+		}
+
+		redeemScripts = append(redeemScripts, redeemScript)
+	}
+
+	z, err := t.SigHash(inputIndex, redeemScripts...) // 서명해시를 가져옴
 	if err != nil {
 		return false, err
 	}

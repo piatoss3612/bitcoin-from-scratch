@@ -60,3 +60,31 @@ func NewP2PKHScript(h160 []byte) *Script {
 		0xac, // OP_CHECKSIG
 	)
 }
+
+func IsP2pkhScriptPubkey(cmds []any) bool {
+	if len(cmds) != 5 {
+		return false
+	}
+
+	opCodeDup, ok1 := cmds[0].(int)
+	opCodeHash160, ok2 := cmds[1].(int)
+	h160, ok3 := cmds[2].([]byte)
+	opCodeEqualVerify, ok4 := cmds[3].(int)
+	opCodeCheckSig, ok5 := cmds[4].(int)
+
+	return ok1 && ok2 && ok3 && ok4 && ok5 &&
+		opCodeDup == 0x76 && opCodeHash160 == 0xa9 && len(h160) == 20 && opCodeEqualVerify == 0x88 && opCodeCheckSig == 0xac
+}
+
+func IsP2shScriptPubkey(cmds []any) bool {
+	if len(cmds) != 3 {
+		return false
+	}
+
+	opCodeHash160, ok1 := cmds[0].(int)
+	h160, ok2 := cmds[1].([]byte)
+	opCodeEqual, ok3 := cmds[2].(int)
+
+	return ok1 && ok2 && ok3 &&
+		opCodeHash160 == 0xa9 && len(h160) == 20 && opCodeEqual == 0x87
+}
