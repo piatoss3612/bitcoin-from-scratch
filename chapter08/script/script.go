@@ -161,14 +161,14 @@ func (s *Script) Evaluate(z []byte) (bool, error) {
 						return false, errors.New("failed to evaluate OP_VERIFY")
 					}
 
-					redeemScript := append(utils.EncodeVarint(len(cmd)), cmd...)
+					rawRedeem := append(utils.EncodeVarint(len(cmd)), cmd...)
 
-					script, _, err := Parse(redeemScript) // redeemScript 파싱
+					redeemScript, _, err := Parse(rawRedeem) // redeemScript 파싱
 					if err != nil {
 						return false, err
 					}
 
-					cmds = append(script.Cmds, cmds...) // cmds에 스크립트 명령어 집합 추가
+					cmds = append(cmds, redeemScript.Cmds...) // cmds에 스크립트 명령어 집합 추가
 				}
 			}
 		// 그 외의 경우: 에러 반환
