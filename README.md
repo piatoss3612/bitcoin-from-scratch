@@ -13,6 +13,7 @@
 5. [트랜잭션](#5-트랜잭션)
 6. [스크립트](#6-스크립트)
 7. [트랜잭션 검증과 생성](#7-트랜잭션-검증과-생성)
+8. [p2sh 스크립트](#8-p2sh-스크립트)
 
 ## 1. 유한체
 
@@ -62,3 +63,10 @@
 |---|---|
 |Code|https://github.com/piatoss3612/bitcoin-from-scratch/tree/chapter07|
 |Blog|https://piatoss3612.tistory.com/23|
+
+## 8. p2sh 스크립트
+
+|Content|Link|
+|---|---|
+|Code|https://github.com/piatoss3612/bitcoin-from-scratch/tree/chapter08|
+|Blog|https://piatoss3612.tistory.com/25|
