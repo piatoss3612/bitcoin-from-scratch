@@ -1479,11 +1479,13 @@ func OpCheckMultiSig(s *[]any, z []byte) bool {
 		return false
 	}
 
-	n, ok := (*s)[len(*s)-1].(int) // n
+	encN, ok := (*s)[len(*s)-1].([]byte) // 인코딩된 n
 	if !ok {
 		return false
 	}
 	*s = (*s)[:len(*s)-1]
+
+	n := DecodeNum(encN) // n
 
 	if len(*s) < n+1 {
 		return false
@@ -1500,10 +1502,13 @@ func OpCheckMultiSig(s *[]any, z []byte) bool {
 		pubKeys[i] = pubKey
 	}
 
-	m, ok := (*s)[len(*s)-1].(int) // m
+	encM, ok := (*s)[len(*s)-1].([]byte) // 인코딩된 m
 	if !ok {
 		return false
 	}
+	*s = (*s)[:len(*s)-1]
+
+	m := DecodeNum(encM) // m
 
 	if len(*s) < m+1 {
 		return false
@@ -1516,6 +1521,7 @@ func OpCheckMultiSig(s *[]any, z []byte) bool {
 		if !ok {
 			return false
 		}
+
 		*s = (*s)[:len(*s)-1]
 		derSigs[i] = derSig[:len(derSig)-1] // remove the sighash type
 	}
@@ -1528,7 +1534,7 @@ func OpCheckMultiSig(s *[]any, z []byte) bool {
 	for i := 0; i < n; i++ {
 		point, err := ecc.ParsePoint(pubKeys[i])
 		if err != nil {
-			log.Println("line 1531:", err)
+			log.Println("line 1538:", err)
 			return false
 		}
 		points[i] = point
@@ -1537,7 +1543,7 @@ func OpCheckMultiSig(s *[]any, z []byte) bool {
 	for i := 0; i < m; i++ {
 		sig, err := ecc.ParseSignature(derSigs[i])
 		if err != nil {
-			log.Println("line 1540:", err)
+			log.Println("line 1547:", err)
 			return false
 		}
 		sigs[i] = sig
@@ -1551,7 +1557,7 @@ func OpCheckMultiSig(s *[]any, z []byte) bool {
 
 			ok, err := point.Verify(z, sig)
 			if err != nil {
-				log.Println("line 1554:", err)
+				log.Println("line 1561:", err)
 				return false
 			}
 
