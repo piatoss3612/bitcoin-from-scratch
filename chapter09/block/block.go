@@ -20,11 +20,7 @@ func New(version int, prevBlock, merkleRoot string, timestamp, bits, nonce int) 
 	}
 }
 
-// TODO: implement Parse, Serialize, Hash
-func Parse(b []byte) (*Block, error) {
-	return nil, nil
-}
-
+// TODO: implement Serialize, Hash
 func (b *Block) Serialize() []byte {
 	return nil
 }

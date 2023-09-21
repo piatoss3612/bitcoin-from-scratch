@@ -100,6 +100,16 @@ func BytesToBigInt(b []byte) *big.Int {
 	return big.NewInt(0).SetBytes(b)
 }
 
+func BytesToInt(b []byte) int {
+	var result int
+
+	for i, by := range b {
+		result += int(by) << uint(8*i)
+	}
+
+	return result
+}
+
 // 문자열을 바이트 슬라이스로 변환하는 함수
 func StringToBytes(s string) []byte {
 	// return unsafe.Slice(unsafe.StringData(s), len(s))
