@@ -3,6 +3,7 @@ package block
 import (
 	"bytes"
 	"chapter09/utils"
+	"encoding/hex"
 	"errors"
 )
 
@@ -14,12 +15,12 @@ func Parse(b []byte) (*Block, error) {
 
 	buf := bytes.NewBuffer(b)
 
-	version := utils.LittleEndianToInt(buf.Next(4))                     // 4바이트 리틀엔디언 정수
-	prevBlock := utils.BytesToString(utils.ReverseBytes(buf.Next(32)))  // 32바이트 리틀엔디언 해시
-	merkleRoot := utils.BytesToString(utils.ReverseBytes(buf.Next(32))) // 32바이트 리틀엔디언 해시
-	timestamp := utils.LittleEndianToInt(buf.Next(4))                   // 4바이트 리틀엔디언 정수
-	bits := utils.BytesToInt(buf.Next(4))                               // 4바이트 리틀엔디언 정수
-	nonce := utils.BytesToInt(buf.Next(4))                              // 4바이트 리틀엔디언 정수
+	version := utils.LittleEndianToInt(buf.Next(4))                    // 4바이트 리틀엔디언 정수
+	prevBlock := hex.EncodeToString(utils.ReverseBytes(buf.Next(32)))  // 32바이트 리틀엔디언 해시
+	merkleRoot := hex.EncodeToString(utils.ReverseBytes(buf.Next(32))) // 32바이트 리틀엔디언 해시
+	timestamp := utils.LittleEndianToInt(buf.Next(4))                  // 4바이트 리틀엔디언 정수
+	bits := utils.BytesToInt(buf.Next(4))                              // 4바이트 리틀엔디언 정수
+	nonce := utils.BytesToInt(buf.Next(4))                             // 4바이트 리틀엔디언 정수
 
 	return New(version, prevBlock, merkleRoot, timestamp, bits, nonce), nil
 }

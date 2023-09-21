@@ -1,6 +1,10 @@
 package block
 
-import "chapter09/utils"
+import (
+	"chapter09/utils"
+	"encoding/hex"
+	"errors"
+)
 
 type Block struct {
 	Version    int
@@ -23,18 +27,45 @@ func New(version int, prevBlock, merkleRoot string, timestamp, bits, nonce int) 
 }
 
 // 블록을 직렬화하는 함수
-func (b *Block) Serialize() []byte {
-	result := make([]byte, 80)
-	result = append(result, utils.IntToLittleEndian(b.Version, 4)...)                 // version 4바이트 리틀엔디언
-	result = append(result, utils.ReverseBytes(utils.StringToBytes(b.PrevBlock))...)  // prevBlock 32바이트 리틀엔디언
-	result = append(result, utils.ReverseBytes(utils.StringToBytes(b.MerkleRoot))...) // merkleRoot 32바이트 리틀엔디언
-	result = append(result, utils.IntToLittleEndian(b.Timestamp, 4)...)               // timestamp 4바이트 리틀엔디언
-	result = append(result, utils.IntToBytes(b.Bits, 4)...)                           // bits 4바이트 빅엔디언
-	result = append(result, utils.IntToBytes(b.Nonce, 4)...)                          // nonce 4바이트 빅엔디언
-	return result
+func (b *Block) Serialize() ([]byte, error) {
+	result := make([]byte, 0, 80)
+
+	version := utils.IntToLittleEndian(b.Version, 4)     // version 4바이트 리틀엔디언
+	prevBlockBytes, err := hex.DecodeString(b.PrevBlock) // 16진수 문자열을 []byte로 변환
+	if err != nil {
+		return nil, err
+	}
+	prevBlock := utils.ReverseBytes(prevBlockBytes)        // prevBlock 32바이트 리틀엔디언
+	merkleRootBytes, err := hex.DecodeString(b.MerkleRoot) // 16진수 문자열을 []byte로 변환
+	if err != nil {
+		return nil, err
+	}
+	merkleRoot := utils.ReverseBytes(merkleRootBytes)    // merkleRoot 32바이트 리틀엔디언
+	timestamp := utils.IntToLittleEndian(b.Timestamp, 4) // timestamp 4바이트 리틀엔디언
+	bits := utils.IntToBytes(b.Bits, 4)                  // bits 4바이트 빅엔디언
+	nonce := utils.IntToBytes(b.Nonce, 4)                // nonce 4바이트 빅엔디언
+
+	totalLength := len(version) + len(prevBlock) + len(merkleRoot) + len(timestamp) + len(bits) + len(nonce)
+
+	if totalLength > 80 {
+		return nil, errors.New("The size of block is too big")
+	}
+
+	result = append(result, version...)
+	result = append(result, prevBlock...)
+	result = append(result, merkleRoot...)
+	result = append(result, timestamp...)
+	result = append(result, bits...)
+	result = append(result, nonce...)
+
+	return result, nil
 }
 
-// TODO: implement Hash
-func (b *Block) Hash() []byte {
-	return nil
+// 블록의 해시를 계산하는 함수
+func (b *Block) Hash() ([]byte, error) {
+	s, err := b.Serialize()
+	if err != nil {
+		return nil, err
+	}
+	return utils.ReverseBytes(utils.Hash256(s)), nil
 }
