@@ -12,7 +12,8 @@ func main() {
 	// readCoinbaseTxScriptSig()
 	//parseHeightFromCoinbaseTxScriptSig()
 	//readBlockID()
-	readBlockVersionBIP9()
+	//readBlockVersionBIP9()
+	calcTargetFromBits()
 }
 
 func readCoinbaseTxScriptSig() {
@@ -68,4 +69,21 @@ func readBlockVersionBIP9() {
 	fmt.Println("BIP9:", b.Bip9())     // 처음 3비트가 001이면 BIP9 활성화
 	fmt.Println("BIP91:", b.Bip91())   // 4번째 비트가 1이면 BIP91 활성화
 	fmt.Println("BIP141:", b.Bip141()) // 2번째 비트가 1이면 BIP141 활성화
+}
+
+func calcTargetFromBits() {
+	bits, _ := hex.DecodeString("e93c0118")
+	// exp := big.NewInt(0).SetBytes([]byte{bits[len(bits)-1]}) // 지수
+	// coef := utils.LittleEndianToBigInt(bits[:len(bits)-1])   // 계수
+
+	// target := big.NewInt(0).Mul(coef, big.NewInt(0).Exp(big.NewInt(256), big.NewInt(0).Sub(exp, big.NewInt(3)), nil)) // 계수 * 256^(지수-3) = 목푯값
+
+	// fmt.Println(hex.EncodeToString(target.FillBytes(make([]byte, 32)))) // 0000000000000000013ce9000000000000000000000000000000000000000000
+
+	target := block.BitsToTarget(bits)
+
+	rawBlockHeader, _ := hex.DecodeString("020000208ec39428b17323fa0ddec8e887b4a7c53b8c0a0a220cfd0000000000000000005b0750fce0a889502d40508d39576821155e9c9e3f5c3157f961db38fd8b25be1e77a759e93c0118a4ffd71d")
+	proof := utils.LittleEndianToBigInt(utils.Hash256(rawBlockHeader))
+
+	fmt.Println(proof.Cmp(target) < 0) // proof가 target보다 작으면 Cmp는 -1을 반환
 }
