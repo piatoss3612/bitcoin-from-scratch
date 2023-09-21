@@ -10,6 +10,8 @@ import (
 
 const TWO_WEEK = 60 * 60 * 24 * 14 // 2주
 
+var MaxTarget = big.NewInt(0).Mul(big.NewInt(0xffff), big.NewInt(0).Exp(big.NewInt(256), big.NewInt(0x1d-3), nil)) // ffff0000000000000000000000000000000000000000000000000000
+
 // 블록을 파싱하는 함수
 func Parse(b []byte) (*Block, error) {
 	if len(b) < 80 {
@@ -55,6 +57,7 @@ func TargetToBits(target *big.Int) []byte {
 	return append(utils.ReverseBytes(coef), byte(exp)) // 계수를 리틀엔디언으로 변환하고 지수를 뒤에 붙임
 }
 
+// 새로운 목푯값을 계산하는 함수
 func CalculateNewBits(prevBits []byte, timeDiff int64) []byte {
 	if timeDiff > TWO_WEEK*4 {
 		timeDiff = TWO_WEEK * 4
@@ -63,6 +66,10 @@ func CalculateNewBits(prevBits []byte, timeDiff int64) []byte {
 	}
 
 	newTarget := big.NewInt(0).Div(big.NewInt(0).Mul(BitsToTarget(prevBits), big.NewInt(timeDiff)), big.NewInt(TWO_WEEK))
+
+	if newTarget.Cmp(MaxTarget) == 1 {
+		newTarget = MaxTarget
+	}
 
 	return TargetToBits(newTarget)
 }
