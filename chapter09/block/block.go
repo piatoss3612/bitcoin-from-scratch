@@ -83,6 +83,10 @@ func (b Block) Bip141() bool {
 	return b.Version>>1&1 == 1
 }
 
+func (b Block) Target() *big.Int {
+	return BitsToTarget(utils.IntToBytes(b.Bits, 4))
+}
+
 // 블록의 난이도를 계산하는 함수
 func (b Block) Difficulty() *big.Float {
 	target := BitsToTarget(utils.IntToBytes(b.Bits, 4))

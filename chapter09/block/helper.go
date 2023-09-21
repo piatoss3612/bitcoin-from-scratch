@@ -33,3 +33,22 @@ func BitsToTarget(b []byte) *big.Int {
 
 	return big.NewInt(0).Mul(coef, big.NewInt(0).Exp(big.NewInt(256), big.NewInt(0).Sub(exp, big.NewInt(3)), nil)) // 계수 * 256^(지수-3) = 목푯값
 }
+
+// 목푯값을 비트로 변환하는 함수
+func TargetToBits(target *big.Int) []byte {
+	rawBytes := target.Bytes() // 목푯값을 []byte로 변환, 앞에 0은 제외됨
+
+	var exp int
+	var coef []byte
+
+	// 만약 rawBytes가 1로 시작하면 음수가 되므로 변환해줌
+	if rawBytes[0] > 0x7f {
+		exp = len(rawBytes) + 1                      // 0x00을 추가했으므로 지수는 1 증가
+		coef = append([]byte{0x00}, rawBytes[:2]...) // 0x00을 추가해줌
+	} else {
+		exp = len(rawBytes) // 지수
+		coef = rawBytes[:3] // 계수
+	}
+
+	return append(utils.ReverseBytes(coef), byte(exp)) // 계수를 리틀엔디언으로 변환하고 지수를 뒤에 붙임
+}
