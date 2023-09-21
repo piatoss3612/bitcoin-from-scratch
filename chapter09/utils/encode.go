@@ -110,6 +110,16 @@ func BytesToInt(b []byte) int {
 	return result
 }
 
+func IntToBytes(n int, length int) []byte {
+	result := make([]byte, length)
+
+	for i := 0; i < length; i++ {
+		result[i] = byte(n >> uint(8*i))
+	}
+
+	return result
+}
+
 // 문자열을 바이트 슬라이스로 변환하는 함수
 func StringToBytes(s string) []byte {
 	// return unsafe.Slice(unsafe.StringData(s), len(s))
