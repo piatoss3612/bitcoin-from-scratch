@@ -6,14 +6,16 @@ import (
 	"chapter09/utils"
 	"encoding/hex"
 	"fmt"
+	"math/big"
 )
 
 func main() {
 	// readCoinbaseTxScriptSig()
-	//parseHeightFromCoinbaseTxScriptSig()
-	//readBlockID()
-	//readBlockVersionBIP9()
-	calcTargetFromBits()
+	// parseHeightFromCoinbaseTxScriptSig()
+	// readBlockID()
+	// readBlockVersionBIP9()
+	// calcTargetFromBits()
+	calcDifficulty()
 }
 
 func readCoinbaseTxScriptSig() {
@@ -86,4 +88,14 @@ func calcTargetFromBits() {
 	proof := utils.LittleEndianToBigInt(utils.Hash256(rawBlockHeader))
 
 	fmt.Println(proof.Cmp(target) < 0) // proof가 target보다 작으면 Cmp는 -1을 반환
+}
+
+func calcDifficulty() {
+	bits, _ := hex.DecodeString("e93c0118")
+	target := block.BitsToTarget(bits)
+
+	// difficulty = 0xffff * 256^(0x1d - 3) / target
+	difficulty := big.NewFloat(0).Mul(big.NewFloat(0xffff), big.NewFloat(0).Quo(big.NewFloat(0).SetInt(new(big.Int).Exp(big.NewInt(256), big.NewInt(0).Sub(big.NewInt(0x1d), big.NewInt(3)), nil)), big.NewFloat(0).SetInt(target))) // 0xffff * 256^(0x1d - 3) / target
+
+	fmt.Println(difficulty.Text('f', -1)) // 888171856257.3206
 }

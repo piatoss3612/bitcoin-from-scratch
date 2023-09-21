@@ -4,6 +4,7 @@ import (
 	"chapter09/utils"
 	"encoding/hex"
 	"errors"
+	"math/big"
 )
 
 type Block struct {
@@ -48,7 +49,7 @@ func (b Block) Serialize() ([]byte, error) {
 	totalLength := len(version) + len(prevBlock) + len(merkleRoot) + len(timestamp) + len(bits) + len(nonce)
 
 	if totalLength > 80 {
-		return nil, errors.New("The size of block is too big")
+		return nil, errors.New("the size of block is too big")
 	}
 
 	result = append(result, version...)
@@ -80,4 +81,10 @@ func (b Block) Bip91() bool {
 
 func (b Block) Bip141() bool {
 	return b.Version>>1&1 == 1
+}
+
+// 블록의 난이도를 계산하는 함수
+func (b Block) Difficulty() *big.Float {
+	target := BitsToTarget(utils.IntToBytes(b.Bits, 4))
+	return big.NewFloat(0).Mul(big.NewFloat(0xffff), big.NewFloat(0).Quo(big.NewFloat(0).SetInt(new(big.Int).Exp(big.NewInt(256), big.NewInt(0).Sub(big.NewInt(0x1d), big.NewInt(3)), nil)), big.NewFloat(0).SetInt(target))) // 0xffff * 256^(0x1d - 3) / target
 }
