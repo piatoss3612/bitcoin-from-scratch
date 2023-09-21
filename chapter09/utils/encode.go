@@ -154,17 +154,11 @@ func IntToLittleEndian(n, length int) []byte {
 
 // 리틀엔디언으로 인코딩된 바이트 슬라이스를 정수로 변환하는 함수
 func LittleEndianToInt(b []byte) int {
-	if len(b) >= 8 {
-		return int(binary.LittleEndian.Uint64(b))
+	var result int
+
+	for i, by := range b {
+		result += int(by) << uint(8*i)
 	}
 
-	if len(b) >= 4 {
-		return int(binary.LittleEndian.Uint32(b))
-	}
-
-	if len(b) >= 2 {
-		return int(binary.LittleEndian.Uint16(b))
-	}
-
-	return 0
+	return result
 }

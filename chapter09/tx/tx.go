@@ -331,6 +331,22 @@ func (t Tx) IsCoinbase() bool {
 		t.Inputs[0].PrevIndex == 0xffffffff // 이전 트랜잭션의 출력 인덱스가 0xffffffff인 경우 코인베이스 트랜잭션
 }
 
+// 코인베이스 트랜잭션의 해제 스크립트에 포함된 높이를 반환하는 함수
+func (t Tx) CoinbaseHeight() (bool, int) {
+	if !t.IsCoinbase() {
+		return false, 0
+	}
+
+	// 코인베이스 트랜잭션의 해제 스크립트에서 높이를 가져옴
+	scriptSig := t.Inputs[0].ScriptSig
+	heightBytes, ok := scriptSig.Cmds[0].([]byte)
+	if !ok {
+		return false, 0
+	}
+
+	return true, utils.LittleEndianToInt(heightBytes) // 리틀엔디언으로 인코딩된 높이를 반환
+}
+
 // 트랜잭션 입력을 나타내는 구조체
 type TxIn struct {
 	PrevIndex int            // 이전 트랜잭션의 출력 인덱스
