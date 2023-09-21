@@ -27,7 +27,7 @@ func New(version int, prevBlock, merkleRoot string, timestamp, bits, nonce int) 
 }
 
 // 블록을 직렬화하는 함수
-func (b *Block) Serialize() ([]byte, error) {
+func (b Block) Serialize() ([]byte, error) {
 	result := make([]byte, 0, 80)
 
 	version := utils.IntToLittleEndian(b.Version, 4)     // version 4바이트 리틀엔디언
@@ -62,10 +62,22 @@ func (b *Block) Serialize() ([]byte, error) {
 }
 
 // 블록의 해시를 계산하는 함수
-func (b *Block) Hash() ([]byte, error) {
+func (b Block) Hash() ([]byte, error) {
 	s, err := b.Serialize()
 	if err != nil {
 		return nil, err
 	}
 	return utils.ReverseBytes(utils.Hash256(s)), nil
+}
+
+func (b Block) Bip9() bool {
+	return b.Version>>29 == 0x001
+}
+
+func (b Block) Bip91() bool {
+	return b.Version>>4&1 == 1
+}
+
+func (b Block) Bip141() bool {
+	return b.Version>>1&1 == 1
 }

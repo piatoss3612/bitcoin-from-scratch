@@ -11,7 +11,8 @@ import (
 func main() {
 	// readCoinbaseTxScriptSig()
 	//parseHeightFromCoinbaseTxScriptSig()
-	readBlockID()
+	//readBlockID()
+	readBlockVersionBIP9()
 }
 
 func readCoinbaseTxScriptSig() {
@@ -49,10 +50,22 @@ func readBlockID() {
 
 	parsed, _ := block.Parse(rawBlockHeader)
 
-	fmt.Println(parsed.PrevBlock)
-
 	blockHash, _ := parsed.Hash()
 	blockID := hex.EncodeToString(utils.ReverseBytes(blockHash))
 
 	fmt.Println(blockID) // 0000000000000000007e9e4c586439b0cdbe13b1370bdd9435d76a644d047523
+}
+
+func readBlockVersionBIP9() {
+	rawBlockHeader, _ := hex.DecodeString("020000208ec39428b17323fa0ddec8e887b4a7c53b8c0a0a220cfd0000000000000000005b0750fce0a889502d40508d39576821155e9c9e3f5c3157f961db38fd8b25be1e77a759e93c0118a4ffd71d")
+
+	b, _ := block.Parse(rawBlockHeader)
+
+	fmt.Println("BIP9:", b.Version>>29 == 0x001) // 처음 3비트가 001이면 BIP9 활성화
+	fmt.Println("BIP91:", b.Version>>4&1 == 1)   // 4번째 비트가 1이면 BIP91 활성화
+	fmt.Println("BIP141:", b.Version>>1&1 == 1)  // 2번째 비트가 1이면 BIP141 활성화
+
+	fmt.Println("BIP9:", b.Bip9())     // 처음 3비트가 001이면 BIP9 활성화
+	fmt.Println("BIP91:", b.Bip91())   // 4번째 비트가 1이면 BIP91 활성화
+	fmt.Println("BIP141:", b.Bip141()) // 2번째 비트가 1이면 BIP141 활성화
 }
