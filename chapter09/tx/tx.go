@@ -1,6 +1,7 @@
 package tx
 
 import (
+	"bytes"
 	"chapter09/ecc"
 	"chapter09/script"
 	"chapter09/utils"
@@ -8,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 )
 
 // 트랜잭션을 나타내는 구조체
@@ -320,6 +322,13 @@ func (t Tx) Verify() (bool, error) {
 	}
 
 	return true, nil
+}
+
+// 트랜잭션이 코인베이스 트랜잭션인지 여부를 반환하는 함수
+func (t Tx) IsCoinbase() bool {
+	return len(t.Inputs) == 1 && // 입력 개수가 1이고
+		strings.EqualFold(t.Inputs[0].PrevTx, hex.EncodeToString(bytes.Repeat([]byte{0x00}, 32))) && // 이전 트랜잭션이 0x00으로 채워진 32바이트이고
+		t.Inputs[0].PrevIndex == 0xffffffff // 이전 트랜잭션의 출력 인덱스가 0xffffffff인 경우 코인베이스 트랜잭션
 }
 
 // 트랜잭션 입력을 나타내는 구조체
