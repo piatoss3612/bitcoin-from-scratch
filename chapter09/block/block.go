@@ -88,3 +88,16 @@ func (b Block) Difficulty() *big.Float {
 	target := BitsToTarget(utils.IntToBytes(b.Bits, 4))
 	return big.NewFloat(0).Mul(big.NewFloat(0xffff), big.NewFloat(0).Quo(big.NewFloat(0).SetInt(new(big.Int).Exp(big.NewInt(256), big.NewInt(0).Sub(big.NewInt(0x1d), big.NewInt(3)), nil)), big.NewFloat(0).SetInt(target))) // 0xffff * 256^(0x1d - 3) / target
 }
+
+// 작업증명의 유호성을 검증하는 함수
+func (b Block) CheckProofOfWork() (bool, error) {
+	hash, err := b.Hash() // 블록의 해시를 계산
+	if err != nil {
+		return false, err
+	}
+
+	target := BitsToTarget(utils.IntToBytes(b.Bits, 4))      // 목푯값 계산
+	proof := new(big.Int).SetBytes(utils.ReverseBytes(hash)) // 블록의 해시를 little endian으로 변환한 뒤 big.Int로 변환
+
+	return proof.Cmp(target) == -1, nil // 블록의 해시가 목푯값보다 작으면 true, 크거나 같으면 false 반환
+}
