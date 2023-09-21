@@ -8,6 +8,8 @@ import (
 	"math/big"
 )
 
+const TWO_WEEK = 60 * 60 * 24 * 14 // 2주
+
 // 블록을 파싱하는 함수
 func Parse(b []byte) (*Block, error) {
 	if len(b) < 80 {
@@ -51,4 +53,16 @@ func TargetToBits(target *big.Int) []byte {
 	}
 
 	return append(utils.ReverseBytes(coef), byte(exp)) // 계수를 리틀엔디언으로 변환하고 지수를 뒤에 붙임
+}
+
+func CalculateNewBits(prevBits []byte, timeDiff int64) []byte {
+	if timeDiff > TWO_WEEK*4 {
+		timeDiff = TWO_WEEK * 4
+	} else if timeDiff < TWO_WEEK/4 {
+		timeDiff = TWO_WEEK / 4
+	}
+
+	newTarget := big.NewInt(0).Div(big.NewInt(0).Mul(BitsToTarget(prevBits), big.NewInt(timeDiff)), big.NewInt(TWO_WEEK))
+
+	return TargetToBits(newTarget)
 }

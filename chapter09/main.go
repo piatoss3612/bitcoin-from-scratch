@@ -16,7 +16,8 @@ func main() {
 	// readBlockVersionBIP9()
 	// calcTargetFromBits()
 	// calcDifficulty()
-	calcNewTarget()
+	// calcNewTarget()
+	calcNewTargetAndConvertToBits()
 }
 
 func readCoinbaseTxScriptSig() {
@@ -121,4 +122,32 @@ func calcNewTarget() {
 	newTarget := big.NewInt(0).Div(big.NewInt(0).Mul(lastBlock.Target(), big.NewInt(int64(timeDiff))), big.NewInt(int64(twoWeek))).FillBytes(make([]byte, 32))
 
 	fmt.Println(hex.EncodeToString(newTarget))
+}
+
+func calcNewTargetAndConvertToBits() {
+	rawFirstBlock, _ := hex.DecodeString("02000020f1472d9db4b563c35f97c428ac903f23b7fc055d1cfc26000000000000000000b3f449fcbe1bc4cfbcb8283a0d2c037f961a3fdf2b8bedc144973735eea707e1264258597e8b0118e5f00474")
+	rawLastBlock, _ := hex.DecodeString("000000203471101bbda3fe307664b3283a9ef0e97d9a38a7eacd8800000000000000000010c8aba8479bbaa5e0848152fd3c2289ca50e1c3e58c9a4faaafbdf5803c5448ddb845597e8b0118e43a81d3")
+
+	firstBlock, _ := block.Parse(rawFirstBlock)
+	lastBlock, _ := block.Parse(rawLastBlock)
+
+	timeDiff := lastBlock.Timestamp - firstBlock.Timestamp
+
+	/*
+		twoWeek := 60 * 60 * 24 * 14
+
+		if timeDiff > twoWeek*4 {
+			timeDiff = twoWeek * 4
+		} else if timeDiff < twoWeek/4 {
+			timeDiff = twoWeek / 4
+		}
+
+		newTarget := big.NewInt(0).Div(big.NewInt(0).Mul(lastBlock.Target(), big.NewInt(int64(timeDiff))), big.NewInt(int64(twoWeek)))
+
+		newBits := block.TargetToBits(newTarget)
+	*/
+
+	newBits := block.CalculateNewBits(block.TargetToBits(lastBlock.Target()), int64(timeDiff))
+
+	fmt.Println(hex.EncodeToString(newBits)) // 80df6217
 }
