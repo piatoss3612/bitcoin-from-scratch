@@ -100,24 +100,24 @@ func BytesToBigInt(b []byte) *big.Int {
 	return big.NewInt(0).SetBytes(b)
 }
 
-func BytesToInt(b []byte) int {
-	var result int
+func IntToBytes(num int, size int) []byte {
+	buf := make([]byte, size)
 
-	for i, by := range b {
-		result += int(by) << uint(8*i)
+	for i := 0; i < size; i++ {
+		buf[i] = byte(num >> uint(8*(size-1-i)))
 	}
 
-	return result
+	return buf
 }
 
-func IntToBytes(n int, length int) []byte {
-	result := make([]byte, length)
+func BytesToInt(buf []byte) int {
+	var num int
 
-	for i := 0; i < length; i++ {
-		result[i] = byte(n >> uint(8*i))
+	for i := 0; i < len(buf); i++ {
+		num = num | int(buf[i])<<uint(8*(len(buf)-1-i))
 	}
 
-	return result
+	return num
 }
 
 // 문자열을 바이트 슬라이스로 변환하는 함수
