@@ -1,6 +1,7 @@
 package network
 
 import (
+	"bytes"
 	"chapter10/utils"
 	"crypto/rand"
 	"math/big"
@@ -72,4 +73,27 @@ func NewVersionMessage(version int64, services int64, timestamp time.Time, recei
 		LastBlock:        lastBlock,
 		Relay:            relay,
 	}, nil
+}
+
+func (vm VersionMessage) Serialize() ([]byte, error) {
+	result := utils.IntToLittleEndian(int(vm.Version), 4)
+	result = append(result, utils.IntToLittleEndian(int(vm.Services), 8)...)
+	result = append(result, utils.IntToLittleEndian(int(vm.Timestamp), 8)...)
+	result = append(result, utils.IntToLittleEndian(int(vm.ReceiverServices), 8)...)
+	result = append(result, append(append(bytes.Repeat([]byte{0x00}, 10), []byte{0xff, 0xff}...), vm.ReceiverIP...)...)
+	result = append(result, utils.IntToBytes(int(vm.ReceiverPort), 2)...)
+	result = append(result, utils.IntToLittleEndian(int(vm.SenderServices), 8)...)
+	result = append(result, append(append(bytes.Repeat([]byte{0x00}, 10), []byte{0xff, 0xff}...), vm.SenderIP...)...)
+	result = append(result, utils.IntToBytes(int(vm.SenderPort), 2)...)
+	result = append(result, vm.Nonce...)
+	result = append(result, vm.UserAgent...)
+	result = append(result, utils.IntToLittleEndian(int(vm.LastBlock), 4)...)
+
+	if vm.Relay {
+		result = append(result, 0x01)
+	} else {
+		result = append(result, 0x00)
+	}
+
+	return result, nil
 }
