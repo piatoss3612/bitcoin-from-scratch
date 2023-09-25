@@ -1,6 +1,7 @@
 package network
 
 import (
+	"chapter10/utils"
 	"encoding/hex"
 	"fmt"
 )
@@ -32,4 +33,14 @@ func New(command, payload []byte, testnet bool) (*NetworkEnvelope, error) {
 
 func (ne NetworkEnvelope) String() string {
 	return fmt.Sprintf("%s %s", ne.command, hex.EncodeToString(ne.payload))
+}
+
+func (ne NetworkEnvelope) Serialize() []byte {
+	result := ne.magic[:]
+	result = append(result, ne.command...)
+	result = append(result, utils.IntToLittleEndian(len(ne.payload), 4)...)
+	result = append(result, utils.Hash256(ne.payload)[:4]...)
+	result = append(result, ne.payload...)
+
+	return result
 }

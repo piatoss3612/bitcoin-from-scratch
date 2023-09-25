@@ -19,4 +19,9 @@ func main() {
 		panic(err)
 	}
 	fmt.Println(envelope)
+
+	rawMsg2 := envelope.Serialize()
+
+	fmt.Println(bytes.Equal(rawMsg, rawMsg2))
+	fmt.Println(hex.EncodeToString(rawMsg2))
 }
