@@ -97,3 +97,17 @@ func (vm VersionMessage) Serialize() ([]byte, error) {
 
 	return result, nil
 }
+
+type VerAckMessage struct {
+	Command []byte
+}
+
+func NewVerAckMessage() *VerAckMessage {
+	return &VerAckMessage{
+		Command: []byte("verack"),
+	}
+}
+
+func (vam VerAckMessage) Serialize() []byte {
+	return []byte{}
+}

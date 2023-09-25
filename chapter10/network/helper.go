@@ -37,3 +37,7 @@ func ParseNetworkEnvelope(b []byte) (*NetworkEnvelope, error) {
 		payload: payload,
 	}, nil
 }
+
+func ParseVerAckMessage(b []byte) *VerAckMessage {
+	return NewVerAckMessage()
+}

@@ -8,6 +8,10 @@ import (
 )
 
 func main() {
+
+}
+
+func parseNetworkEnvelop() {
 	msg := "f9beb4d976657261636b000000000000000000005df6e0e2"
 	rawMsg, _ := hex.DecodeString(msg)
 
