@@ -32,9 +32,9 @@ func ParseNetworkEnvelope(b []byte) (*NetworkEnvelope, error) {
 	}
 
 	return &NetworkEnvelope{
-		magic:   magic,
-		command: command,
-		payload: payload,
+		Magic:   magic,
+		Command: command,
+		Payload: payload,
 	}, nil
 }
 

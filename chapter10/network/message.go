@@ -33,10 +33,10 @@ func DefaultVersionMessage(network ...NetworkType) *VersionMessage {
 		Services:         0,
 		Timestamp:        time.Now().Unix(),
 		ReceiverServices: 0,
-		ReceiverIP:       []byte{0x00, 0x00, 0x00, 0x00},
+		ReceiverIP:       []byte{0x7F, 0x00, 0x00, 0x01},
 		ReceiverPort:     8333,
 		SenderServices:   0,
-		SenderIP:         []byte{0x00, 0x00, 0x00, 0x00},
+		SenderIP:         []byte{0x7F, 0x00, 0x00, 0x01},
 		SenderPort:       8333,
 		Nonce:            []byte{0, 0, 0, 0, 0, 0, 0, 0},
 		UserAgent:        []byte("/Satoshi:0.0.1/"),
@@ -123,7 +123,6 @@ func NewVersionMessage(version int32, services int64, timestamp time.Time,
 }
 
 func (vm VersionMessage) Serialize() ([]byte, error) {
-
 	result := utils.IntToLittleEndian(int(vm.Version), 4)
 	result = append(result, utils.IntToLittleEndian(int(vm.Services), 8)...)
 	result = append(result, utils.IntToLittleEndian(int(vm.Timestamp), 8)...)
