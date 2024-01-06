@@ -1,6 +1,7 @@
 package network
 
 import (
+	"encoding/hex"
 	"fmt"
 	"log"
 	"net"
@@ -85,12 +86,16 @@ func (sn *SimpleNode) Send(msg Message, network ...NetworkType) error {
 }
 
 func (sn *SimpleNode) Read() (*NetworkEnvelope, error) {
+	// 너무 작은 버퍼를 사용해서 데이터를 전부 읽어오지 못하는 문제가 있음 (책에서 파이썬으로 구현한 코드는 그런 문제가 없음)
 	buf := make([]byte, 1024)
 
 	n, err := sn.conn.Read(buf)
 	if err != nil {
 		return nil, err
 	}
+
+	s := hex.EncodeToString(buf[:n])
+	fmt.Println("Received:", s, "bytes:", n)
 
 	envelope, err := ParseNetworkEnvelope(buf[:n])
 	if err != nil {
@@ -119,9 +124,10 @@ func (sn *SimpleNode) WaitFor(commands []Command) (<-chan *NetworkEnvelope, <-ch
 			case <-sn.serverCloseChan:
 				return
 			default:
+				fmt.Println("Waiting for messages...")
 				envelope, err := sn.Read()
 				if err != nil {
-					errors <- err
+					fmt.Println("Error reading message:", err)
 					continue
 				}
 
@@ -130,20 +136,16 @@ func (sn *SimpleNode) WaitFor(commands []Command) (<-chan *NetworkEnvelope, <-ch
 				}
 
 				if envelope.Command.Compare(PingCommand) {
-					pong := NewPongMessage(envelope.Payload)
-
-					err = sn.Send(pong, sn.Network)
+					err = sn.Send(NewPongMessage(envelope.Payload), sn.Network)
 					if err != nil {
 						errors <- err
 						continue
 					}
 
 					if sn.Logging {
-						log.Printf("Send: %s\n", pong.Command())
+						log.Printf("Send: %s\n", PongCommand)
 					}
-				}
-
-				if _, ok := commandsMap[envelope.Command.String()]; ok {
+				} else if _, ok := commandsMap[envelope.Command.String()]; ok {
 					envelopes <- envelope
 				}
 			}

@@ -25,10 +25,7 @@ func ParseNetworkEnvelope(b []byte) (*NetworkEnvelope, error) {
 		return nil, ErrInvalidNetworkMagic
 	}
 
-	command, err := ParseCommand(buf.Next(12))
-	if err != nil {
-		return nil, err
-	}
+	command := ParseCommand(buf.Next(12))
 
 	payloadLength := utils.LittleEndianToInt(buf.Next(4))
 	payloadChecksum := buf.Next(4)
@@ -46,13 +43,8 @@ func ParseNetworkEnvelope(b []byte) (*NetworkEnvelope, error) {
 	}, nil
 }
 
-func ParseCommand(b []byte) (Command, error) {
-	cmd := Command(bytes.Trim(b, "\x00"))
-	if !cmd.IsValid() {
-		return nil, ErrInvalidCommand
-	}
-
-	return cmd, nil
+func ParseCommand(b []byte) Command {
+	return Command(bytes.Trim(b, "\x00"))
 }
 
 func ParseHeadersMessage(b []byte) (*HeadersMessage, error) {
