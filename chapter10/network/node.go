@@ -179,9 +179,32 @@ func (sn *SimpleNode) HandShake() (<-chan bool, error) {
 						log.Printf("Recv: %s\n", envelope.Command)
 					}
 
+					continue
+				}
+
+				if envelope.Command.Compare(VersionCommand) {
+					if sn.Logging {
+						log.Printf("Recv: %s\n", envelope.Command)
+					}
+
+					ack := NewVerAckMessage()
+
+					err = sn.Send(ack, sn.Network)
+					if err != nil {
+						if sn.Logging {
+							log.Printf("Error: %s\n", err)
+						}
+						return
+					}
+
+					if sn.Logging {
+						log.Println("Successfully established connection")
+					}
+
 					respChan <- true
 					return
 				}
+
 			case err := <-errors:
 				if err != nil {
 					if sn.Logging {

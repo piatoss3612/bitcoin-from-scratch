@@ -2,15 +2,14 @@ package main
 
 import (
 	"bytes"
-	"chapter10/block"
 	"chapter10/network"
 	"encoding/hex"
 	"fmt"
 )
 
 func main() {
-	// practice5()
-	practice4()
+	practice5()
+	// practice4()
 }
 
 func practice2() {
@@ -55,8 +54,8 @@ func practice4() {
 }
 
 func practice5() {
-	rawGenesisBlock, _ := hex.DecodeString("0100000000000000000000000000000000000000000000000000000000000000000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a29ab5f49ffff001d1dac2b7c")
-	genesisBlock, _ := block.Parse(rawGenesisBlock)
+	// rawGenesisBlock, _ := hex.DecodeString("0100000000000000000000000000000000000000000000000000000000000000000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a29ab5f49ffff001d1dac2b7c")
+	// genesisBlock, _ := block.Parse(rawGenesisBlock)
 
 	node, err := network.NewSimpleNode("localhost", 18555, network.SimNet, true)
 	if err != nil {
@@ -79,8 +78,8 @@ func practice5() {
 	fmt.Println("Handshake successful")
 
 	getheaders := network.DefaultGetHeadersMessage()
-	genesisHash, _ := genesisBlock.Hash()
-	getheaders.StartBlock = genesisHash
+	// genesisHash, _ := genesisBlock.Hash()
+	// getheaders.StartBlock = genesisHash
 
 	err = node.Send(getheaders, network.SimNet)
 	if err != nil {

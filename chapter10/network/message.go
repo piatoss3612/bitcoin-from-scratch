@@ -166,8 +166,8 @@ func (vam VerAckMessage) Command() Command {
 	return VerAckCommand
 }
 
-func (vam VerAckMessage) Serialize() []byte {
-	return []byte{}
+func (vam VerAckMessage) Serialize() ([]byte, error) {
+	return []byte{}, nil
 }
 
 type GetHeadersMessage struct {
@@ -182,6 +182,7 @@ func DefaultGetHeadersMessage() *GetHeadersMessage {
 		Version:        70015,
 		NumberOfHashes: 1,
 		EndBlock:       bytes.Repeat([]byte{0x00}, 32),
+		StartBlock:     bytes.Repeat([]byte{0x00}, 32),
 	}
 
 	return msg
