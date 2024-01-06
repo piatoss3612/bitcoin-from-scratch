@@ -2,6 +2,7 @@ package network
 
 import (
 	"bytes"
+	"chapter10/block"
 	"chapter10/utils"
 	"crypto/rand"
 	"math/big"
@@ -35,13 +36,13 @@ func DefaultVersionMessage(network ...NetworkType) *VersionMessage {
 		Services:         0,
 		Timestamp:        time.Now().Unix(),
 		ReceiverServices: 0,
-		ReceiverIP:       []byte{0x7F, 0x00, 0x00, 0x01},
+		ReceiverIP:       []byte{0x00, 0x00, 0x00, 0x00},
 		ReceiverPort:     8333,
 		SenderServices:   0,
-		SenderIP:         []byte{0x7F, 0x00, 0x00, 0x01},
+		SenderIP:         []byte{0x00, 0x00, 0x00, 0x00},
 		SenderPort:       8333,
 		Nonce:            []byte{0, 0, 0, 0, 0, 0, 0, 0},
-		UserAgent:        []byte("/Satoshi:0.0.1/"),
+		UserAgent:        []byte("/Satoshi:22.0.0/"),
 		LastestBlock:     0,
 		Relay:            false,
 	}
@@ -49,9 +50,12 @@ func DefaultVersionMessage(network ...NetworkType) *VersionMessage {
 	if len(network) > 0 {
 		switch network[0] {
 		case TestNet:
+			msg.SenderIP = []byte{0x7F, 0x00, 0x00, 0x01}
 			msg.ReceiverPort = 18333
 			msg.SenderPort = 18333
 		case SimNet:
+			msg.ReceiverIP = []byte{0x7F, 0x00, 0x00, 0x01}
+			msg.SenderIP = []byte{0x7F, 0x00, 0x00, 0x01}
 			msg.ReceiverPort = 18555
 			msg.SenderPort = 18555
 		}
@@ -152,8 +156,7 @@ func (vm VersionMessage) Serialize() ([]byte, error) {
 	return result, nil
 }
 
-type VerAckMessage struct {
-}
+type VerAckMessage struct{}
 
 func NewVerAckMessage() *VerAckMessage {
 	return &VerAckMessage{}
@@ -165,4 +168,115 @@ func (vam VerAckMessage) Command() Command {
 
 func (vam VerAckMessage) Serialize() []byte {
 	return []byte{}
+}
+
+type GetHeadersMessage struct {
+	Version        int32 // 4 bytes
+	NumberOfHashes int64 // variable
+	StartBlock     []byte
+	EndBlock       []byte
+}
+
+func DefaultGetHeadersMessage() *GetHeadersMessage {
+	msg := &GetHeadersMessage{
+		Version:        70015,
+		NumberOfHashes: 1,
+		EndBlock:       bytes.Repeat([]byte{0x00}, 32),
+	}
+
+	return msg
+}
+
+func NewGetHeadersMessage(version int32, numberOfHashes int64, startBlock []byte, endBlock []byte) (*GetHeadersMessage, error) {
+	msg := DefaultGetHeadersMessage()
+
+	if version != 0 {
+		msg.Version = version
+	}
+
+	if numberOfHashes > 0 {
+		msg.NumberOfHashes = numberOfHashes
+	}
+
+	if startBlock == nil {
+		return nil, ErrInvalidStartBlockHash
+	}
+
+	if len(startBlock) != 32 {
+		return nil, ErrInvalidStartBlockHash
+	}
+
+	msg.StartBlock = startBlock
+
+	if endBlock != nil {
+		if len(endBlock) != 32 {
+			return nil, ErrInvalidEndBlockHash
+		}
+
+		msg.EndBlock = endBlock
+	}
+
+	return msg, nil
+}
+
+func (ghm GetHeadersMessage) Command() Command {
+	return GetHeadersCommand
+}
+
+func (ghm GetHeadersMessage) Serialize() ([]byte, error) {
+	result := utils.IntToLittleEndian(int(ghm.Version), 4)
+	result = append(result, utils.EncodeVarint(int(ghm.NumberOfHashes))...)
+	result = append(result, ghm.StartBlock...)
+	result = append(result, ghm.EndBlock...)
+
+	return result, nil
+}
+
+type HeadersMessage struct {
+	NumberOfHeaders int64
+	Headers         []*block.Block
+}
+
+func (hm HeadersMessage) Command() Command {
+	return HeadersCommand
+}
+
+func (hm HeadersMessage) Serialize() ([]byte, error) {
+	return nil, nil
+}
+
+type PingMessage struct {
+	Nonce []byte
+}
+
+func NewPingMessage(nonce []byte) *PingMessage {
+	return &PingMessage{
+		Nonce: nonce,
+	}
+}
+
+func (pm PingMessage) Command() Command {
+	return PingCommand
+}
+
+func (pm PingMessage) Serialize() ([]byte, error) {
+	return pm.Nonce, nil
+}
+
+type PongMessage struct {
+	Nonce []byte
+}
+
+func NewPongMessage(nonce []byte) *PongMessage {
+	return &PongMessage{
+		Nonce: nonce,
+	}
+}
+
+func (pm PongMessage) Command() Command {
+	return PongCommand
+}
+
+func (pm PongMessage) Serialize() ([]byte, error) {
+	return pm.Nonce, nil
 }

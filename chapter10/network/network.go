@@ -42,9 +42,12 @@ func IsNetworkMagicValid(magic []byte) bool {
 type Command []byte
 
 var (
-	VersionCommand Command = []byte("version")
-	VerAckCommand  Command = []byte("verack")
-	PingCommand    Command = []byte("ping")
+	VersionCommand    Command = []byte("version")
+	VerAckCommand     Command = []byte("verack")
+	PingCommand       Command = []byte("ping")
+	PongCommand       Command = []byte("pong")
+	GetHeadersCommand Command = []byte("getheaders")
+	HeadersCommand    Command = []byte("headers")
 )
 
 func (c Command) String() string {

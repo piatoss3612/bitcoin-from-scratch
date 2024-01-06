@@ -2,12 +2,14 @@ package main
 
 import (
 	"bytes"
+	"chapter10/block"
 	"chapter10/network"
 	"encoding/hex"
 	"fmt"
 )
 
 func main() {
+	// practice5()
 	practice4()
 }
 
@@ -50,4 +52,65 @@ func practice4() {
 	}
 
 	fmt.Println("Handshake successful")
+}
+
+func practice5() {
+	rawGenesisBlock, _ := hex.DecodeString("0100000000000000000000000000000000000000000000000000000000000000000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a29ab5f49ffff001d1dac2b7c")
+	genesisBlock, _ := block.Parse(rawGenesisBlock)
+
+	node, err := network.NewSimpleNode("localhost", 18555, network.SimNet, true)
+	if err != nil {
+		panic(err)
+	}
+
+	defer node.Close()
+
+	fmt.Println("Connected to", node.Host, "on port", node.Port)
+
+	resp, err := node.HandShake()
+	if err != nil {
+		panic(err)
+	}
+
+	if ok := <-resp; !ok {
+		panic("Handshake failed")
+	}
+
+	fmt.Println("Handshake successful")
+
+	getheaders := network.DefaultGetHeadersMessage()
+	genesisHash, _ := genesisBlock.Hash()
+	getheaders.StartBlock = genesisHash
+
+	err = node.Send(getheaders, network.SimNet)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("Sent getheaders message")
+
+	envelopes, errs := node.WaitFor([]network.Command{network.HeadersCommand})
+
+	for {
+		select {
+		case err := <-errs:
+			panic(err)
+		case headers := <-envelopes:
+			msg, err := network.ParseHeadersMessage(headers.Payload)
+			if err != nil {
+				panic(err)
+			}
+
+			fmt.Println("Received headers message with", len(msg.Headers), "headers")
+
+			for _, header := range msg.Headers {
+				hash, err := header.Hash()
+				if err != nil {
+					panic(err)
+				}
+
+				fmt.Println("Header hash:", hex.EncodeToString(hash[:]))
+			}
+		}
+	}
 }

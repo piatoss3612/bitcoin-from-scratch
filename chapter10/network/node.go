@@ -77,7 +77,7 @@ func (sn *SimpleNode) Send(msg Message, network ...NetworkType) error {
 	}
 
 	if sn.Logging {
-		log.Printf("Send: %s\n", envelope)
+		log.Printf("Send: %s\n", envelope.Command)
 	}
 
 	_, err = sn.conn.Write(envelopeBytes)
@@ -90,10 +90,6 @@ func (sn *SimpleNode) Read() (*NetworkEnvelope, error) {
 	n, err := sn.conn.Read(buf)
 	if err != nil {
 		return nil, err
-	}
-
-	if sn.Logging {
-		log.Printf("Recv: %s\n", buf[:n])
 	}
 
 	envelope, err := ParseNetworkEnvelope(buf[:n])
@@ -129,6 +125,24 @@ func (sn *SimpleNode) WaitFor(commands []Command) (<-chan *NetworkEnvelope, <-ch
 					continue
 				}
 
+				if envelope == nil {
+					continue
+				}
+
+				if envelope.Command.Compare(PingCommand) {
+					pong := NewPongMessage(envelope.Payload)
+
+					err = sn.Send(pong, sn.Network)
+					if err != nil {
+						errors <- err
+						continue
+					}
+
+					if sn.Logging {
+						log.Printf("Send: %s\n", pong.Command())
+					}
+				}
+
 				if _, ok := commandsMap[envelope.Command.String()]; ok {
 					envelopes <- envelope
 				}
@@ -156,19 +170,25 @@ func (sn *SimpleNode) HandShake() (<-chan bool, error) {
 		for {
 			select {
 			case envelope := <-envelopes:
+				if envelope == nil {
+					continue
+				}
+
 				if envelope.Command.Compare(VerAckCommand) {
 					if sn.Logging {
-						log.Printf("Recv: %s\n", envelope)
+						log.Printf("Recv: %s\n", envelope.Command)
 					}
 
 					respChan <- true
 					return
 				}
 			case err := <-errors:
-				if sn.Logging {
-					log.Printf("Error: %s\n", err)
+				if err != nil {
+					if sn.Logging {
+						log.Printf("Error: %s\n", err)
+					}
+					return
 				}
-				return
 			}
 		}
 	}()

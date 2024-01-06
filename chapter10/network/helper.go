@@ -2,15 +2,18 @@ package network
 
 import (
 	"bytes"
+	"chapter10/block"
 	"chapter10/utils"
 	"fmt"
 )
 
 var (
-	ErrInvalidNetworkMagic = fmt.Errorf("invalid network magic")
-	ErrInvalidPayload      = fmt.Errorf("invalid payload")
-	ErrInvalidNetwork      = fmt.Errorf("invalid network")
-	ErrInvalidCommand      = fmt.Errorf("invalid command")
+	ErrInvalidNetworkMagic   = fmt.Errorf("invalid network magic")
+	ErrInvalidPayload        = fmt.Errorf("invalid payload")
+	ErrInvalidNetwork        = fmt.Errorf("invalid network")
+	ErrInvalidCommand        = fmt.Errorf("invalid command")
+	ErrInvalidStartBlockHash = fmt.Errorf("invalid start block hash")
+	ErrInvalidEndBlockHash   = fmt.Errorf("invalid end block hash")
 )
 
 func ParseNetworkEnvelope(b []byte) (*NetworkEnvelope, error) {
@@ -43,10 +46,6 @@ func ParseNetworkEnvelope(b []byte) (*NetworkEnvelope, error) {
 	}, nil
 }
 
-func ParseVerAckMessage(b []byte) *VerAckMessage {
-	return NewVerAckMessage()
-}
-
 func ParseCommand(b []byte) (Command, error) {
 	cmd := Command(bytes.Trim(b, "\x00"))
 	if !cmd.IsValid() {
@@ -54,4 +53,54 @@ func ParseCommand(b []byte) (Command, error) {
 	}
 
 	return cmd, nil
+}
+
+func ParseHeadersMessage(b []byte) (*HeadersMessage, error) {
+	buf := bytes.NewBuffer(b)
+
+	numOfHeaders, read := utils.ReadVarint(buf.Bytes())
+	buf.Next(read)
+
+	headers := make([]*block.Block, numOfHeaders)
+
+	for i := 0; i < int(numOfHeaders); i++ {
+		header, err := block.Parse(buf.Bytes())
+		if err != nil {
+			return nil, err
+		}
+
+		headers[i] = header
+
+		numOfTxns, _ := utils.ReadVarint(buf.Bytes())
+		if numOfTxns > 0 {
+			return nil, fmt.Errorf("block %d has %d transactions", i, numOfTxns)
+		}
+
+		buf.Next(81)
+	}
+
+	return &HeadersMessage{
+		NumberOfHeaders: int64(numOfHeaders),
+		Headers:         headers,
+	}, nil
+}
+
+func ParsePingMessage(b []byte) (*PingMessage, error) {
+	buf := bytes.NewBuffer(b)
+
+	nonce := buf.Next(8)
+
+	return &PingMessage{
+		Nonce: nonce,
+	}, nil
+}
+
+func ParsePongMessage(b []byte) (*PongMessage, error) {
+	buf := bytes.NewBuffer(b)
+
+	nonce := buf.Next(8)
+
+	return &PongMessage{
+		Nonce: nonce,
+	}, nil
 }
