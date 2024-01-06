@@ -8,9 +8,12 @@ import (
 	"time"
 )
 
-type VersionMessage struct {
-	Command []byte // not serialized
+type Message interface {
+	Command() Command
+	Serialize() ([]byte, error)
+}
 
+type VersionMessage struct {
 	Version          int32  // 4 bytes
 	Services         int64  // 8 bytes
 	Timestamp        int64  // 8 bytes
@@ -28,7 +31,6 @@ type VersionMessage struct {
 
 func DefaultVersionMessage(network ...NetworkType) *VersionMessage {
 	msg := &VersionMessage{
-		Command:          []byte("version"),
 		Version:          70015,
 		Services:         0,
 		Timestamp:        time.Now().Unix(),
@@ -122,6 +124,10 @@ func NewVersionMessage(version int32, services int64, timestamp time.Time,
 	return msg, nil
 }
 
+func (vm VersionMessage) Command() Command {
+	return VersionCommand
+}
+
 func (vm VersionMessage) Serialize() ([]byte, error) {
 	result := utils.IntToLittleEndian(int(vm.Version), 4)
 	result = append(result, utils.IntToLittleEndian(int(vm.Services), 8)...)
@@ -147,13 +153,14 @@ func (vm VersionMessage) Serialize() ([]byte, error) {
 }
 
 type VerAckMessage struct {
-	Command []byte
 }
 
 func NewVerAckMessage() *VerAckMessage {
-	return &VerAckMessage{
-		Command: []byte("verack"),
-	}
+	return &VerAckMessage{}
+}
+
+func (vam VerAckMessage) Command() Command {
+	return VerAckCommand
 }
 
 func (vam VerAckMessage) Serialize() []byte {

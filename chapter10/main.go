@@ -5,8 +5,6 @@ import (
 	"chapter10/network"
 	"encoding/hex"
 	"fmt"
-	"io"
-	"net"
 )
 
 func main() {
@@ -33,48 +31,23 @@ func practice3() {
 }
 
 func practice4() {
-	conn, err := net.Dial("tcp", "localhost:18555")
-	if err != nil {
-		panic(err)
-	}
-	defer conn.Close()
-
-	fmt.Println("Connected to", conn.RemoteAddr())
-
-	msg := network.DefaultVersionMessage()
-
-	msgBytes, _ := msg.Serialize()
-
-	envelope, _ := network.New(msg.Command, msgBytes, network.SimNet)
-
-	envelopeBytes, _ := envelope.Serialize()
-
-	fmt.Println("Send:", hex.EncodeToString(envelopeBytes))
-
-	n, err := conn.Write(envelopeBytes)
+	node, err := network.NewSimpleNode("localhost", 18555, network.SimNet, true)
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Println("Sent", n, "bytes")
+	defer node.Close()
 
-	for {
-		buf := make([]byte, 1024)
+	fmt.Println("Connected to", node.Host, "on port", node.Port)
 
-		n, err := conn.Read(buf)
-		if err != nil {
-			if err == io.EOF {
-				continue
-			}
-		}
-
-		fmt.Println(hex.EncodeToString(buf[:n]))
-
-		decodedEnvelope, err := network.ParseNetworkEnvelope(buf[:n])
-		if err != nil {
-			panic(err)
-		}
-
-		fmt.Println(decodedEnvelope)
+	resp, err := node.HandShake()
+	if err != nil {
+		panic(err)
 	}
+
+	if ok := <-resp; !ok {
+		panic("Handshake failed")
+	}
+
+	fmt.Println("Handshake successful")
 }

@@ -9,6 +9,8 @@ import (
 var (
 	ErrInvalidNetworkMagic = fmt.Errorf("invalid network magic")
 	ErrInvalidPayload      = fmt.Errorf("invalid payload")
+	ErrInvalidNetwork      = fmt.Errorf("invalid network")
+	ErrInvalidCommand      = fmt.Errorf("invalid command")
 )
 
 func ParseNetworkEnvelope(b []byte) (*NetworkEnvelope, error) {
@@ -20,7 +22,10 @@ func ParseNetworkEnvelope(b []byte) (*NetworkEnvelope, error) {
 		return nil, ErrInvalidNetworkMagic
 	}
 
-	command := buf.Next(12)
+	command, err := ParseCommand(buf.Next(12))
+	if err != nil {
+		return nil, err
+	}
 
 	payloadLength := utils.LittleEndianToInt(buf.Next(4))
 	payloadChecksum := buf.Next(4)
@@ -40,4 +45,13 @@ func ParseNetworkEnvelope(b []byte) (*NetworkEnvelope, error) {
 
 func ParseVerAckMessage(b []byte) *VerAckMessage {
 	return NewVerAckMessage()
+}
+
+func ParseCommand(b []byte) (Command, error) {
+	cmd := Command(bytes.Trim(b, "\x00"))
+	if !cmd.IsValid() {
+		return nil, ErrInvalidCommand
+	}
+
+	return cmd, nil
 }

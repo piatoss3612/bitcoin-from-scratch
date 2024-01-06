@@ -7,12 +7,12 @@ import (
 )
 
 type NetworkEnvelope struct {
-	Magic   []byte // 4 bytes
-	Command []byte // 12 bytes
-	Payload []byte // variable
+	Magic   []byte  // 4 bytes
+	Command Command // 12 bytes
+	Payload []byte  // variable
 }
 
-func New(command, payload []byte, network ...NetworkType) (*NetworkEnvelope, error) {
+func NewEnvelope(command, payload []byte, network ...NetworkType) (*NetworkEnvelope, error) {
 	ne := &NetworkEnvelope{
 		Magic:   NetworkMagic,
 		Command: command,
