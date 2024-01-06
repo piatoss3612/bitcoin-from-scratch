@@ -6,26 +6,26 @@ import (
 	"fmt"
 )
 
-var (
-	NetworkMagic     = []byte{0xf9, 0xbe, 0xb4, 0xd9}
-	TestNetworkMagic = []byte{0x0b, 0x11, 0x09, 0x07}
-)
-
 type NetworkEnvelope struct {
-	magic   []byte
-	command []byte
-	payload []byte
+	magic   []byte // 4 bytes
+	command []byte // 12 bytes
+	payload []byte // variable
 }
 
-func New(command, payload []byte, testnet bool) (*NetworkEnvelope, error) {
+func New(command, payload []byte, network ...NetworkType) (*NetworkEnvelope, error) {
 	ne := &NetworkEnvelope{
 		magic:   NetworkMagic,
 		command: command,
 		payload: payload,
 	}
 
-	if testnet {
-		ne.magic = TestNetworkMagic
+	if len(network) > 0 {
+		switch network[0] {
+		case TestNet:
+			ne.magic = TestNetworkMagic
+		case SimNet:
+			ne.magic = SimNetMagic
+		}
 	}
 
 	return ne, nil
@@ -35,12 +35,16 @@ func (ne NetworkEnvelope) String() string {
 	return fmt.Sprintf("%s %s", ne.command, hex.EncodeToString(ne.payload))
 }
 
-func (ne NetworkEnvelope) Serialize() []byte {
+func (ne NetworkEnvelope) Serialize() ([]byte, error) {
 	result := ne.magic[:]
-	result = append(result, ne.command...)
+
+	command := make([]byte, 12)
+	copy(command, ne.command)
+	result = append(result, command...)
+
 	result = append(result, utils.IntToLittleEndian(len(ne.payload), 4)...)
 	result = append(result, utils.Hash256(ne.payload)[:4]...)
 	result = append(result, ne.payload...)
 
-	return result
+	return result, nil
 }

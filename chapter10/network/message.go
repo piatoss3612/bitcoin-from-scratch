@@ -9,44 +9,95 @@ import (
 )
 
 type VersionMessage struct {
-	Version          int64
-	Services         int64
-	Timestamp        int64
-	ReceiverServices int64
-	ReceiverIP       []byte
-	ReceiverPort     int64
-	SenderServices   int64
-	SenderIP         []byte
-	SenderPort       int64
-	Nonce            []byte
-	UserAgent        []byte
-	LastBlock        int64
-	Relay            bool
+	Command []byte // not serialized
+
+	Version          int32  // 4 bytes
+	Services         int64  // 8 bytes
+	Timestamp        int64  // 8 bytes
+	ReceiverServices int64  // 8 bytes
+	ReceiverIP       []byte // 16 bytes (IPv4)
+	ReceiverPort     int16  // 2 bytes
+	SenderServices   int64  // 8 bytes
+	SenderIP         []byte // 16 bytes (IPv4)
+	SenderPort       int16  // 2 bytes
+	Nonce            []byte // 8 bytes
+	UserAgent        []byte // variable
+	LastestBlock     int32  // 4 bytes
+	Relay            bool   // 1 byte
 }
 
-func NewVersionMessage(version int64, services int64, timestamp time.Time, receiverServices int64, receiverIP []byte, receiverPort int64, senderServices int64, senderIP []byte, senderPort int64, nonce []byte, userAgent []byte, lastBlock int64, relay bool) (*VersionMessage, error) {
-	if version == 0 {
-		version = 70015
+func DefaultVersionMessage(network ...NetworkType) *VersionMessage {
+	msg := &VersionMessage{
+		Command:          []byte("version"),
+		Version:          70015,
+		Services:         0,
+		Timestamp:        time.Now().Unix(),
+		ReceiverServices: 0,
+		ReceiverIP:       []byte{0x00, 0x00, 0x00, 0x00},
+		ReceiverPort:     8333,
+		SenderServices:   0,
+		SenderIP:         []byte{0x00, 0x00, 0x00, 0x00},
+		SenderPort:       8333,
+		Nonce:            []byte{0, 0, 0, 0, 0, 0, 0, 0},
+		UserAgent:        []byte("/Satoshi:0.0.1/"),
+		LastestBlock:     0,
+		Relay:            false,
 	}
 
-	if timestamp.IsZero() {
-		timestamp = time.Now()
+	if len(network) > 0 {
+		switch network[0] {
+		case TestNet:
+			msg.ReceiverPort = 18333
+			msg.SenderPort = 18333
+		case SimNet:
+			msg.ReceiverPort = 18555
+			msg.SenderPort = 18555
+		}
 	}
 
-	if receiverIP == nil {
-		receiverIP = []byte{0, 0, 0, 0}
+	return msg
+}
+
+func NewVersionMessage(version int32, services int64, timestamp time.Time,
+	receiverServices int64, receiverIP []byte, receiverPort int16,
+	senderServices int64, senderIP []byte, senderPort int16,
+	nonce []byte, userAgent []byte, lastBlock int32, relay bool) (*VersionMessage, error) {
+	msg := DefaultVersionMessage()
+
+	if version != 0 {
+		msg.Version = version
 	}
 
-	if receiverPort == 0 {
-		receiverPort = 8333
+	if services != 0 {
+		msg.Services = services
 	}
 
-	if senderIP == nil {
-		senderIP = []byte{0, 0, 0, 0}
+	if !timestamp.IsZero() {
+		msg.Timestamp = timestamp.Unix()
 	}
 
-	if senderPort == 0 {
-		senderPort = 8333
+	if receiverServices != 0 {
+		msg.ReceiverServices = receiverServices
+	}
+
+	if receiverIP != nil {
+		msg.ReceiverIP = receiverIP
+	}
+
+	if receiverPort != 0 {
+		msg.ReceiverPort = receiverPort
+	}
+
+	if senderServices != 0 {
+		msg.SenderServices = senderServices
+	}
+
+	if senderIP != nil {
+		msg.SenderIP = senderIP
+	}
+
+	if senderPort != 0 {
+		msg.SenderPort = senderPort
 	}
 
 	if nonce == nil {
@@ -55,27 +106,24 @@ func NewVersionMessage(version int64, services int64, timestamp time.Time, recei
 			return nil, err
 		}
 
-		nonce = utils.IntToLittleEndian(int(temp.Int64()), 8)
+		msg.Nonce = utils.IntToLittleEndian(int(temp.Int64()), 8)
 	}
 
-	return &VersionMessage{
-		Version:          version,
-		Services:         services,
-		Timestamp:        timestamp.Unix(),
-		ReceiverServices: receiverServices,
-		ReceiverIP:       receiverIP,
-		ReceiverPort:     receiverPort,
-		SenderServices:   senderServices,
-		SenderIP:         senderIP,
-		SenderPort:       senderPort,
-		Nonce:            nonce,
-		UserAgent:        userAgent,
-		LastBlock:        lastBlock,
-		Relay:            relay,
-	}, nil
+	if userAgent != nil {
+		msg.UserAgent = userAgent
+	}
+
+	if lastBlock != 0 {
+		msg.LastestBlock = lastBlock
+	}
+
+	msg.Relay = relay
+
+	return msg, nil
 }
 
 func (vm VersionMessage) Serialize() ([]byte, error) {
+
 	result := utils.IntToLittleEndian(int(vm.Version), 4)
 	result = append(result, utils.IntToLittleEndian(int(vm.Services), 8)...)
 	result = append(result, utils.IntToLittleEndian(int(vm.Timestamp), 8)...)
@@ -86,8 +134,9 @@ func (vm VersionMessage) Serialize() ([]byte, error) {
 	result = append(result, append(append(bytes.Repeat([]byte{0x00}, 10), []byte{0xff, 0xff}...), vm.SenderIP...)...)
 	result = append(result, utils.IntToBytes(int(vm.SenderPort), 2)...)
 	result = append(result, vm.Nonce...)
+	result = append(result, utils.EncodeVarint(len(vm.UserAgent))...)
 	result = append(result, vm.UserAgent...)
-	result = append(result, utils.IntToLittleEndian(int(vm.LastBlock), 4)...)
+	result = append(result, utils.IntToLittleEndian(int(vm.LastestBlock), 4)...)
 
 	if vm.Relay {
 		result = append(result, 0x01)

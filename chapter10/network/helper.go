@@ -16,7 +16,7 @@ func ParseNetworkEnvelope(b []byte) (*NetworkEnvelope, error) {
 
 	magic := buf.Next(4)
 
-	if !bytes.Equal(magic, NetworkMagic) && !bytes.Equal(magic, TestNetworkMagic) {
+	if !IsNetworkMagicValid(magic) {
 		return nil, ErrInvalidNetworkMagic
 	}
 
