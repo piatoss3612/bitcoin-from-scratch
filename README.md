@@ -1,6 +1,6 @@
 # 밑바닥부터 시작하는 비트코인 in Go
 
-![image](https://github.com/piatoss3612/bitcoin-from-scratch/assets/61569834/08fa314e-705d-447f-8d59-ca1af2a95d14)
+<img src="https://github.com/piatoss3612/bitcoin-from-scratch/assets/61569834/02eb05d0-6449-47e0-8143-3e69c421c77c" width="480" />
 
 [밑바닥부터 시작하는 비트코인](https://hanbit.co.kr/store/books/look.php?p_code=B2663064363)을 읽고 Go로 구현해보는 프로젝트입니다.
 
@@ -15,6 +15,7 @@
 7. [트랜잭션 검증과 생성](#7-트랜잭션-검증과-생성)
 8. [p2sh 스크립트](#8-p2sh-스크립트)
 9. [블록](#9-블록)
+10. [네트워킹](#10-네트워킹)
 
 ## 1. 유한체
 
@@ -78,3 +79,10 @@
 |---|---|
 |Code|https://github.com/piatoss3612/bitcoin-from-scratch/tree/chapter09|
 |Blog|https://piatoss3612.tistory.com/26|
+
+## 10. 네트워킹
+
+|Content|Link|
+|---|---|
+|Code|https://github.com/piatoss3612/bitcoin-from-scratch/tree/chapter10|
+|Blog|https://piatoss3612.tistory.com/92|
