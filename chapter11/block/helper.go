@@ -27,7 +27,7 @@ func Parse(b []byte) (*Block, error) {
 	bits := utils.BytesToInt(buf.Next(4))                              // 4바이트 리틀엔디언 정수
 	nonce := utils.BytesToInt(buf.Next(4))                             // 4바이트 리틀엔디언 정수
 
-	return New(version, prevBlock, merkleRoot, timestamp, bits, nonce), nil
+	return New(version, prevBlock, merkleRoot, timestamp, bits, nonce, nil), nil
 }
 
 // 목푯값을 계산하는 함수

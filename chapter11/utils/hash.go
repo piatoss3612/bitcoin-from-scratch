@@ -56,3 +56,26 @@ func H160ToP2shAddress(h160 []byte, testnet bool) string {
 	}
 	return EncodeBase58Checksum(append([]byte{prefix}, h160...))
 }
+
+func MerkleParent(left, right []byte) []byte {
+	return Hash256(append(left, right...))
+}
+
+func MerkleParentLevel(hashes [][]byte) [][]byte {
+	if len(hashes)%2 == 1 {
+		hashes = append(hashes, hashes[len(hashes)-1])
+	}
+
+	parentLevel := make([][]byte, len(hashes)/2)
+	for i := 0; i < len(hashes); i += 2 {
+		parentLevel[i/2] = MerkleParent(hashes[i], hashes[i+1])
+	}
+	return parentLevel
+}
+
+func MerkleRoot(hashes [][]byte) []byte {
+	for len(hashes) > 1 {
+		hashes = MerkleParentLevel(hashes)
+	}
+	return hashes[0]
+}

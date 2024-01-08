@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"math/big"
+	"strings"
 )
 
 type Block struct {
@@ -14,9 +15,10 @@ type Block struct {
 	Timestamp  int
 	Bits       int
 	Nonce      int
+	TxHashes   [][]byte
 }
 
-func New(version int, prevBlock, merkleRoot string, timestamp, bits, nonce int) *Block {
+func New(version int, prevBlock, merkleRoot string, timestamp, bits, nonce int, txHashes [][]byte) *Block {
 	return &Block{
 		Version:    version,
 		PrevBlock:  prevBlock,
@@ -24,6 +26,7 @@ func New(version int, prevBlock, merkleRoot string, timestamp, bits, nonce int) 
 		Timestamp:  timestamp,
 		Bits:       bits,
 		Nonce:      nonce,
+		TxHashes:   txHashes,
 	}
 }
 
@@ -104,4 +107,20 @@ func (b Block) CheckProofOfWork() (bool, error) {
 	proof := new(big.Int).SetBytes(utils.ReverseBytes(hash)) // 블록의 해시를 little endian으로 변환한 뒤 big.Int로 변환
 
 	return proof.Cmp(target) == -1, nil // 블록의 해시가 목푯값보다 작으면 true, 크거나 같으면 false 반환
+}
+
+func (b Block) ValidateMerkleRoot() (bool, error) {
+	if len(b.TxHashes) == 0 {
+		return false, errors.New("tx hashes is empty")
+	}
+
+	hashes := make([][]byte, len(b.TxHashes))
+	for i, txHash := range b.TxHashes {
+		hashes[i] = utils.ReverseBytes(txHash)
+	}
+
+	root := utils.MerkleRoot(hashes)
+	revRoot := utils.ReverseBytes(root)
+
+	return strings.Compare(hex.EncodeToString(revRoot), b.MerkleRoot) == 0, nil
 }
