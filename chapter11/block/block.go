@@ -1,7 +1,7 @@
 package block
 
 import (
-	"chapter10/utils"
+	"chapter11/utils"
 	"encoding/hex"
 	"errors"
 	"math/big"

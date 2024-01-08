@@ -1,8 +1,8 @@
 package script
 
 import (
-	"chapter10/ecc"
-	"chapter10/utils"
+	"chapter11/ecc"
+	"chapter11/utils"
 	"log"
 )
 

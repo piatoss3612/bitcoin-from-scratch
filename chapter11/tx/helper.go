@@ -2,8 +2,8 @@ package tx
 
 import (
 	"bytes"
-	"chapter10/script"
-	"chapter10/utils"
+	"chapter11/script"
+	"chapter11/utils"
 	"encoding/hex"
 )
 

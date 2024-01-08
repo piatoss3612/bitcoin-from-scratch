@@ -2,7 +2,7 @@ package ecc
 
 import (
 	"bytes"
-	"chapter10/utils"
+	"chapter11/utils"
 	"crypto/hmac"
 	"crypto/sha256"
 	"fmt"
