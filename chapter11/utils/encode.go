@@ -182,3 +182,15 @@ func LittleEndianToInt(b []byte) int {
 
 	return result
 }
+
+func BytesToBitField(b []byte) []bool {
+	var result []bool
+
+	for _, by := range b {
+		for i := 0; i < 8; i++ {
+			result = append(result, by&(1<<uint(i)) != 0)
+		}
+	}
+
+	return result
+}
