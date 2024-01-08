@@ -1,7 +1,6 @@
 package network
 
 import (
-	"encoding/hex"
 	"fmt"
 	"log"
 	"net"
@@ -24,6 +23,8 @@ func NewSimpleNode(host string, port int, network NetworkType, logging bool) (*S
 			port = DefaultMainNetPort
 		case TestNet:
 			port = DefaultTestNetPort
+		case RegTest:
+			port = DefaultRegTestPort
 		case SimNet:
 			port = DefaultSimNetPort
 		default:
@@ -65,7 +66,7 @@ func (sn *SimpleNode) Send(msg Message, network ...NetworkType) error {
 	if len(network) > 0 {
 		envelope, err = NewEnvelope(msg.Command(), msgBytes, network[0])
 	} else {
-		envelope, err = NewEnvelope(msg.Command(), msgBytes)
+		envelope, err = NewEnvelope(msg.Command(), msgBytes, sn.Network)
 	}
 
 	if err != nil {
@@ -87,15 +88,16 @@ func (sn *SimpleNode) Send(msg Message, network ...NetworkType) error {
 
 func (sn *SimpleNode) Read() (*NetworkEnvelope, error) {
 	// 너무 작은 버퍼를 사용해서 데이터를 전부 읽어오지 못하는 문제가 있음 (책에서 파이썬으로 구현한 코드는 그런 문제가 없음)
-	buf := make([]byte, 1024)
+	// 32MB 버퍼를 사용해도 안됨
+	buf := make([]byte, 32*1024*1024)
 
 	n, err := sn.conn.Read(buf)
 	if err != nil {
 		return nil, err
 	}
 
-	s := hex.EncodeToString(buf[:n])
-	fmt.Println("Received:", s, "bytes:", n)
+	// s := hex.EncodeToString(buf[:n])
+	fmt.Println("Read bytes:", n)
 
 	envelope, err := ParseNetworkEnvelope(buf[:n])
 	if err != nil {
@@ -127,8 +129,10 @@ func (sn *SimpleNode) WaitFor(commands []Command) (<-chan *NetworkEnvelope, <-ch
 				fmt.Println("Waiting for messages...")
 				envelope, err := sn.Read()
 				if err != nil {
-					fmt.Println("Error reading message:", err)
-					continue
+					// fmt.Println("Error reading message:", err)
+					// continue
+					errors <- err
+					return
 				}
 
 				if envelope == nil {

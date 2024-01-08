@@ -38,10 +38,7 @@ func (ne NetworkEnvelope) String() string {
 func (ne NetworkEnvelope) Serialize() ([]byte, error) {
 	result := ne.Magic[:]
 
-	command := make([]byte, 12)
-	copy(command, ne.Command)
-	result = append(result, command...)
-
+	result = append(result, ne.Command.Serialize()...)
 	result = append(result, utils.IntToLittleEndian(len(ne.Payload), 4)...)
 	result = append(result, utils.Hash256(ne.Payload)[:4]...)
 	result = append(result, ne.Payload...)

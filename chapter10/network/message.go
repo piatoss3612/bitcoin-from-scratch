@@ -171,8 +171,8 @@ func (vam VerAckMessage) Serialize() ([]byte, error) {
 }
 
 type GetHeadersMessage struct {
-	Version        int32 // 4 bytes
-	NumberOfHashes int64 // variable
+	Version        int32
+	NumberOfHashes int64
 	StartBlock     []byte
 	EndBlock       []byte
 }
