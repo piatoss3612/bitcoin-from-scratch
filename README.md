@@ -16,6 +16,7 @@
 8. [p2sh 스크립트](#8-p2sh-스크립트)
 9. [블록](#9-블록)
 10. [네트워킹](#10-네트워킹)
+11. [단순 지급 검증](#11-단순-지급-검증)
 
 ## 1. 유한체
 
@@ -86,3 +87,15 @@
 |---|---|
 |Code|https://github.com/piatoss3612/bitcoin-from-scratch/tree/chapter10|
 |Blog|https://piatoss3612.tistory.com/92|
+
+## 11. 단순 지급 검증
+
+|Content|Link|
+|---|---|
+|Code|https://github.com/piatoss3612/bitcoin-from-scratch/tree/chapter11|
+|Blog||
+
+## 참고
+
+- [밑바닥부터 시작하는 비트코인](https://hanbit.co.kr/store/books/look.php?p_code=B2663064363)
+- [btcd](https://github.com/btcsuite/btcd)
