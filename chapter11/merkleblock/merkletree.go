@@ -1,6 +1,7 @@
 package merkleblock
 
 import (
+	"chapter11/utils"
 	"fmt"
 	"math"
 	"strings"
@@ -14,7 +15,7 @@ type MerkleTree struct {
 	CurrentIndex int
 }
 
-func New(total int) *MerkleTree {
+func NewMerkleTree(total int) *MerkleTree {
 	maxDepth := int(math.Ceil(math.Log2(float64(total))))
 
 	nodes := make([][][]byte, maxDepth+1)
@@ -111,4 +112,52 @@ func (m *MerkleTree) IsLeaf() bool {
 
 func (m *MerkleTree) RightExists() bool {
 	return len(m.Nodes[m.CurrentDepth+1]) > m.CurrentIndex*2+1
+}
+
+func (m *MerkleTree) PopulateTree(flagBits []byte, hashes [][]byte) error {
+	for m.Root() == nil {
+		if m.IsLeaf() {
+			m.SetCurrentNode(hashes[0])
+			hashes = hashes[1:]
+			flagBits = flagBits[1:]
+			m.Up()
+		} else {
+			leftHash := m.GetLeftNode()
+			if leftHash == nil {
+				bit := flagBits[0]
+				flagBits = flagBits[1:]
+
+				if bit == 0 {
+					m.SetCurrentNode(hashes[0])
+					hashes = hashes[1:]
+					m.Up()
+				} else {
+					m.Left()
+				}
+			} else if m.RightExists() {
+				rightHash := m.GetRightNode()
+				if rightHash == nil {
+					m.Right()
+				} else {
+					m.SetCurrentNode(utils.MerkleParent(leftHash, rightHash))
+					m.Up()
+				}
+			} else {
+				m.SetCurrentNode(utils.MerkleParent(leftHash, leftHash))
+				m.Up()
+			}
+		}
+	}
+
+	if len(hashes) != 0 {
+		return fmt.Errorf("hashes not all consumed %d", len(hashes))
+	}
+
+	for _, bit := range flagBits {
+		if bit != 0 {
+			return fmt.Errorf("flagBits not all consumed")
+		}
+	}
+
+	return nil
 }
