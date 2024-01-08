@@ -2,7 +2,7 @@ package block
 
 import (
 	"bytes"
-	"chapter11/utils"
+	"chapter12/utils"
 	"encoding/hex"
 	"errors"
 	"math/big"

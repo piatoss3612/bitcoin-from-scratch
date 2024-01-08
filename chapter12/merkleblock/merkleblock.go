@@ -2,7 +2,7 @@ package merkleblock
 
 import (
 	"bytes"
-	"chapter11/utils"
+	"chapter12/utils"
 )
 
 type MerkleBlock struct {

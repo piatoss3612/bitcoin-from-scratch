@@ -1,4 +1,4 @@
-module chapter11
+module chapter12
 
 go 1.21.0
 

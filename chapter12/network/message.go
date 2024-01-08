@@ -2,8 +2,8 @@ package network
 
 import (
 	"bytes"
-	"chapter11/block"
-	"chapter11/utils"
+	"chapter12/block"
+	"chapter12/utils"
 	"crypto/rand"
 	"math/big"
 	"time"

@@ -1,7 +1,7 @@
 package script
 
 import (
-	"chapter11/utils"
+	"chapter12/utils"
 	"encoding/hex"
 	"errors"
 	"fmt"

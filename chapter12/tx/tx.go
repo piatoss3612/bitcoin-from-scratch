@@ -2,9 +2,9 @@ package tx
 
 import (
 	"bytes"
-	"chapter11/ecc"
-	"chapter11/script"
-	"chapter11/utils"
+	"chapter12/ecc"
+	"chapter12/script"
+	"chapter12/utils"
 	"encoding/hex"
 	"fmt"
 	"io"

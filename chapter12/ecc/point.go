@@ -1,7 +1,7 @@
 package ecc
 
 import (
-	"chapter11/utils"
+	"chapter12/utils"
 	"fmt"
 	"math/big"
 )

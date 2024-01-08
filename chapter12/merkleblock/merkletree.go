@@ -1,7 +1,7 @@
 package merkleblock
 
 import (
-	"chapter11/utils"
+	"chapter12/utils"
 	"fmt"
 	"math"
 	"strings"
