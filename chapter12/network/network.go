@@ -69,6 +69,7 @@ var (
 	GetHeadersCommand Command = []byte("getheaders")
 	HeadersCommand    Command = []byte("headers")
 	FilterloadCommand Command = []byte("filterload")
+	GetDataCommand    Command = []byte("getdata")
 )
 
 func (c Command) String() string {

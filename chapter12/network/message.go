@@ -300,3 +300,40 @@ func (gm GenericMessage) Command() Command {
 func (gm GenericMessage) Serialize() ([]byte, error) {
 	return gm.Payload, nil
 }
+
+type GetDataMessage struct {
+	Cmd  Command
+	Data []Data
+}
+
+type Data struct {
+	Type uint32
+	Hash []byte
+}
+
+func NewGetDataMessage() *GetDataMessage {
+	return &GetDataMessage{
+		Cmd: GetDataCommand,
+	}
+}
+
+func (gdm *GetDataMessage) AddData(typ uint32, hash []byte) {
+	gdm.Data = append(gdm.Data, Data{
+		Type: typ,
+		Hash: hash,
+	})
+}
+
+func (gdm GetDataMessage) Command() Command {
+	return gdm.Cmd
+}
+
+func (gdm GetDataMessage) Serialize() ([]byte, error) {
+	result := utils.EncodeVarint(len(gdm.Data))
+	for _, d := range gdm.Data {
+		result = append(result, utils.IntToLittleEndian(int(d.Type), 4)...)
+		result = append(result, utils.ReverseBytes(d.Hash)...)
+	}
+
+	return result, nil
+}

@@ -3,13 +3,15 @@ package main
 import (
 	"bytes"
 	"chapter12/bloomfilter"
+	"chapter12/network"
 	"chapter12/utils"
+	"encoding/hex"
 	"fmt"
 	"math/big"
 )
 
 func main() {
-	practice6()
+	practice7()
 }
 
 func practice1() {
@@ -112,4 +114,49 @@ func practice6() {
 	fmt.Printf("%x\n", b) // 4000600a080000010940
 }
 
-func practice7() {}
+// TODO: fix network logic
+func practice7() {
+	startBlock, _ := hex.DecodeString("00000000000538d5c2246336644f9a4956551afb44ba47278759ec55ea912e19")
+	address := "mwJn1YPMq7y5F8J3LkC5Hxg9PHyZ5K4cFv"
+	h160, _ := utils.DecodeBase58(address)
+
+	node, err := network.NewSimpleNode("71.13.92.62", 18333, network.TestNet, true)
+	if err != nil {
+		panic(err)
+	}
+
+	bf := bloomfilter.New(10, 5, 90210)
+	bf.Add(h160)
+
+	resp, err := node.HandShake()
+	if err != nil {
+		panic(err)
+	}
+
+	if ok := <-resp; !ok {
+		panic("handshake failed")
+	}
+
+	if err := node.Send(bf.Filterload()); err != nil {
+		panic(err)
+	}
+
+	getheaders := network.DefaultGetHeadersMessage()
+	getheaders.StartBlock = startBlock
+
+	if err := node.Send(getheaders); err != nil {
+		panic(err)
+	}
+
+	envelopes, errs := node.WaitFor([]network.Command{network.HeadersCommand})
+
+	for {
+		select {
+		case envelope := <-envelopes:
+			fmt.Printf("%s\n", envelope.Command)
+			fmt.Printf("%x\n", envelope.Payload)
+		case err := <-errs:
+			panic(err)
+		}
+	}
+}

@@ -19,7 +19,7 @@ func New(size, funcs, tweak uint32) *BloomFilter {
 		Size:     size,
 		Funcs:    funcs,
 		Tweak:    tweak,
-		BitField: make([]byte, size),
+		BitField: make([]byte, size*8),
 	}
 }
 
