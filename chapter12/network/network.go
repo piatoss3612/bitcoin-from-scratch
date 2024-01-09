@@ -68,6 +68,7 @@ var (
 	PongCommand       Command = []byte("pong")
 	GetHeadersCommand Command = []byte("getheaders")
 	HeadersCommand    Command = []byte("headers")
+	FilterloadCommand Command = []byte("filterload")
 )
 
 func (c Command) String() string {

@@ -280,3 +280,23 @@ func (pm PongMessage) Command() Command {
 func (pm PongMessage) Serialize() ([]byte, error) {
 	return pm.Nonce, nil
 }
+
+type GenericMessage struct {
+	Cmd     Command
+	Payload []byte
+}
+
+func NewGenericMessage(cmd Command, payload []byte) *GenericMessage {
+	return &GenericMessage{
+		Cmd:     cmd,
+		Payload: payload,
+	}
+}
+
+func (gm GenericMessage) Command() Command {
+	return gm.Cmd
+}
+
+func (gm GenericMessage) Serialize() ([]byte, error) {
+	return gm.Payload, nil
+}

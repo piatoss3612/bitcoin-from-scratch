@@ -194,3 +194,17 @@ func BytesToBitField(bytes []byte) []byte {
 
 	return result
 }
+
+func BitFieldToBytes(bitField []byte) []byte {
+	var result []byte
+
+	for i := 0; i < len(bitField); i += 8 {
+		var b byte
+		for j := 0; j < 8; j++ {
+			b += bitField[i+j] << uint(j)
+		}
+		result = append(result, b)
+	}
+
+	return result
+}
