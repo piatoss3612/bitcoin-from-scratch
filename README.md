@@ -17,6 +17,7 @@
 9. [블록](#9-블록)
 10. [네트워킹](#10-네트워킹)
 11. [단순 지급 검증](#11-단순-지급-검증)
+12. [블룸 필터](#12-블룸-필터)
 
 ## 1. 유한체
 
@@ -93,6 +94,13 @@
 |Content|Link|
 |---|---|
 |Code|https://github.com/piatoss3612/bitcoin-from-scratch/tree/chapter11|
+|Blog|https://piatoss3612.tistory.com/94|
+
+## 12. 블룸 필터
+
+|Content|Link|
+|---|---|
+|Code|https://github.com/piatoss3612/bitcoin-from-scratch/tree/chapter12|
 |Blog||
 
 ## 참고
