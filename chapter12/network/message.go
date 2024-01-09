@@ -42,7 +42,7 @@ func DefaultVersionMessage(network ...NetworkType) *VersionMessage {
 		SenderIP:         []byte{0x00, 0x00, 0x00, 0x00},
 		SenderPort:       8333,
 		Nonce:            []byte{0, 0, 0, 0, 0, 0, 0, 0},
-		UserAgent:        []byte("/Satoshi:22.0.0/"),
+		UserAgent:        []byte("/programmingbitcoin:0.1/"),
 		LastestBlock:     0,
 		Relay:            false,
 	}
@@ -226,8 +226,8 @@ func (ghm GetHeadersMessage) Command() Command {
 func (ghm GetHeadersMessage) Serialize() ([]byte, error) {
 	result := utils.IntToLittleEndian(int(ghm.Version), 4)
 	result = append(result, utils.EncodeVarint(int(ghm.NumberOfHashes))...)
-	result = append(result, ghm.StartBlock...)
-	result = append(result, ghm.EndBlock...)
+	result = append(result, utils.ReverseBytes(ghm.StartBlock)...)
+	result = append(result, utils.ReverseBytes(ghm.EndBlock)...)
 
 	return result, nil
 }
