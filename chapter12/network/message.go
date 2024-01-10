@@ -303,12 +303,7 @@ func (gm GenericMessage) Serialize() ([]byte, error) {
 
 type GetDataMessage struct {
 	Cmd  Command
-	Data []Data
-}
-
-type Data struct {
-	Type uint32
-	Hash []byte
+	Data []DataItem
 }
 
 func NewGetDataMessage() *GetDataMessage {
@@ -317,8 +312,8 @@ func NewGetDataMessage() *GetDataMessage {
 	}
 }
 
-func (gdm *GetDataMessage) AddData(typ uint32, hash []byte) {
-	gdm.Data = append(gdm.Data, Data{
+func (gdm *GetDataMessage) AddData(typ DataItemType, hash []byte) {
+	gdm.Data = append(gdm.Data, DataItem{
 		Type: typ,
 		Hash: hash,
 	})

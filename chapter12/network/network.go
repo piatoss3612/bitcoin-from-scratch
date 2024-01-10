@@ -86,3 +86,17 @@ func (c Command) Serialize() []byte {
 func (c Command) Compare(other Command) bool {
 	return bytes.Equal(c, other)
 }
+
+type DataItemType uint32
+
+const (
+	TxDataItem DataItemType = iota + 1
+	BlockDataItem
+	FiltedBlockDataItem
+	CompactBlockDataItem
+)
+
+type DataItem struct {
+	Type DataItemType
+	Hash []byte
+}
