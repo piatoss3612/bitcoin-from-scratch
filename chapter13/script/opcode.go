@@ -281,6 +281,10 @@ func (o OpCode) String() string {
 	return s
 }
 
+func (o OpCode) Int() int {
+	return int(o)
+}
+
 func EncodeNum(num int) []byte {
 	if num == 0 {
 		return []byte{}
@@ -438,13 +442,13 @@ func OpNop(s *[]any) bool {
 	return true
 }
 
-func OpIf(s, i *[]any) bool {
+func OpIf(s *[]any, i *[]Command) bool {
 	if len(*s) < 1 {
 		return false
 	}
 
-	trueItems := []any{}
-	falseItems := []any{}
+	trueItems := []Command{}
+	falseItems := []Command{}
 	currentItems := &trueItems
 	found := false
 	numEndIfsNeeded := 1
@@ -453,14 +457,13 @@ func OpIf(s, i *[]any) bool {
 		item := (*i)[0]
 		*i = (*i)[1:]
 
-		switch item := item.(type) {
-		case int:
-			if item > 98 && item < 101 {
+		if item.IsOpCode {
+			if item.Code > 98 && item.Code < 101 {
 				numEndIfsNeeded++
 				*currentItems = append(*currentItems, item)
-			} else if numEndIfsNeeded == 1 && item == 103 {
+			} else if numEndIfsNeeded == 1 && item.Code == 103 {
 				currentItems = &falseItems
-			} else if item == 104 {
+			} else if item.Code == 104 {
 				if numEndIfsNeeded == 1 {
 					found = true
 					break
@@ -471,7 +474,7 @@ func OpIf(s, i *[]any) bool {
 			} else {
 				*currentItems = append(*currentItems, item)
 			}
-		default:
+		} else {
 			*currentItems = append(*currentItems, item)
 		}
 	}
@@ -492,13 +495,13 @@ func OpIf(s, i *[]any) bool {
 	return true
 }
 
-func OpNotIf(s, i *[]any) bool {
+func OpNotIf(s *[]any, i *[]Command) bool {
 	if len(*s) < 1 {
 		return false
 	}
 
-	trueItems := []any{}
-	falseItems := []any{}
+	trueItems := []Command{}
+	falseItems := []Command{}
 	currentItems := &trueItems
 	found := false
 	numEndIfsNeeded := 1
@@ -507,14 +510,13 @@ func OpNotIf(s, i *[]any) bool {
 		item := (*i)[0]
 		*i = (*i)[1:]
 
-		switch item := item.(type) {
-		case int:
-			if item > 98 && item < 101 {
+		if item.IsOpCode {
+			if item.Code > 98 && item.Code < 101 {
 				numEndIfsNeeded++
 				*currentItems = append(*currentItems, item)
-			} else if numEndIfsNeeded == 1 && item == 103 {
+			} else if numEndIfsNeeded == 1 && item.Code == 103 {
 				currentItems = &falseItems
-			} else if item == 104 {
+			} else if item.Code == 104 {
 				if numEndIfsNeeded == 1 {
 					found = true
 					break
@@ -525,7 +527,7 @@ func OpNotIf(s, i *[]any) bool {
 			} else {
 				*currentItems = append(*currentItems, item)
 			}
-		default:
+		} else {
 			*currentItems = append(*currentItems, item)
 		}
 	}

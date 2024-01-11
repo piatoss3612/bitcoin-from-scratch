@@ -14,21 +14,26 @@ import (
 
 // 트랜잭션을 나타내는 구조체
 type Tx struct {
-	Version  int      // 트랜잭션의 버전
-	Inputs   []*TxIn  // 트랜잭션의 입력 목록
-	Outputs  []*TxOut // 트랜잭션의 출력 목록
-	Locktime int      // 트랜잭션의 유효 시점
-	Testnet  bool     // 테스트넷인지 여부
+	Version      int      // 트랜잭션의 버전
+	Inputs       []*TxIn  // 트랜잭션의 입력 목록
+	Outputs      []*TxOut // 트랜잭션의 출력 목록
+	Locktime     int      // 트랜잭션의 유효 시점
+	Testnet      bool     // 테스트넷인지 여부
+	Segwit       bool     // 세그윗인지 여부
+	HashPrevOuts []byte   // 이전 트랜잭션 출력의 해시
+	HashSequence []byte   // 시퀀스 번호의 해시
+	HashOutputs  []byte   // 출력의 해시
 }
 
 // Tx 생성자 함수
-func NewTx(version int, inputs []*TxIn, outputs []*TxOut, locktime int, testnet bool) *Tx {
+func NewTx(version int, inputs []*TxIn, outputs []*TxOut, locktime int, testnet, segwit bool) *Tx {
 	tx := &Tx{
 		Version:  version,
 		Inputs:   inputs,
 		Outputs:  outputs,
 		Locktime: locktime,
 		Testnet:  testnet,
+		Segwit:   segwit,
 	}
 
 	return tx
@@ -36,11 +41,7 @@ func NewTx(version int, inputs []*TxIn, outputs []*TxOut, locktime int, testnet 
 
 // 트랜잭션의 문자열 표현을 반환하는 함수 (fmt.Stringer 인터페이스 구현)
 func (t Tx) String() string {
-	id, err := t.ID()
-	if err != nil {
-		panic(err)
-	}
-
+	id, _ := t.ID()
 	return fmt.Sprintf("tx: %s\nversion: %d\ninputs: %s\noutputs: %s\nlocktime: %d",
 		id, t.Version, t.Inputs, t.Outputs, t.Locktime)
 }
@@ -56,6 +57,7 @@ func (t Tx) ID() (string, error) {
 
 // 트랜잭션의 해시를 반환하는 함수
 func (t Tx) Hash() ([]byte, error) {
+	t.Segwit = false // 세그윗 여부를 false로 설정 (세그윗이든 아니든 해시는 동일하게 계산)
 	s, err := t.Serialize()
 	if err != nil {
 		return nil, err
@@ -66,9 +68,26 @@ func (t Tx) Hash() ([]byte, error) {
 
 // 트랜잭션을 직렬화한 결과를 반환하는 함수
 func (t Tx) Serialize() ([]byte, error) {
-	result := utils.IntToLittleEndian(t.Version, 4) // 버전
+	buf := new(bytes.Buffer)
+
+	_, err := buf.Write(utils.IntToLittleEndian(t.Version, 4)) // 버전
+	if err != nil {
+		return nil, err
+	}
+
+	if t.Segwit { // 세그윗 트랜잭션인 경우
+		_, err := buf.Write([]byte{0x00, 0x01}) // 마커 (0x00), 플래그 (0x01)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	in, err := t.serializeInputs() // 입력 목록
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = buf.Write(in)
 	if err != nil {
 		return nil, err
 	}
@@ -78,11 +97,29 @@ func (t Tx) Serialize() ([]byte, error) {
 		return nil, err
 	}
 
-	result = append(result, in...)
-	result = append(result, out...)
-	result = append(result, utils.IntToLittleEndian(t.Locktime, 4)...) // 유효 시점
+	_, err = buf.Write(out)
+	if err != nil {
+		return nil, err
+	}
 
-	return result, nil
+	if t.Segwit { // 세그윗 트랜잭션인 경우
+		witnesses, err := t.serializeWitnesses() // 증인 데이터
+		if err != nil {
+			return nil, err
+		}
+
+		_, err = buf.Write(witnesses)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	_, err = buf.Write(utils.IntToLittleEndian(t.Locktime, 4)) // 유효 시점
+	if err != nil {
+		return nil, err
+	}
+
+	return buf.Bytes(), nil
 }
 
 // 트랜잭션 입력 목록을 직렬화한 결과를 반환하는 함수
@@ -120,6 +157,40 @@ func (t Tx) serializeOutputs() ([]byte, error) {
 	}
 
 	return result, nil // 직렬화한 결과를 반환
+}
+
+// 증인 데이터를 직렬화한 결과를 반환하는 함수
+func (t Tx) serializeWitnesses() ([]byte, error) {
+	buf := new(bytes.Buffer)
+
+	for _, input := range t.Inputs {
+		_, err := buf.Write(utils.IntToLittleEndian(len(input.Witness), 1)) // 입력의 증인 데이터 개수
+		if err != nil {
+			return nil, err
+		}
+
+		for _, item := range input.Witness {
+			if len(item) == 0 {
+				_, err := buf.Write(utils.IntToLittleEndian(0, 1)) // 증인 데이터의 길이가 0이면 0x00을 추가
+				if err != nil {
+					return nil, err
+				}
+				continue
+			}
+
+			_, err := buf.Write(utils.EncodeVarint(len(item))) // 증인 데이터의 길이 (가변 정수)
+			if err != nil {
+				return nil, err
+			}
+
+			_, err = buf.Write(item) // 증인 데이터
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	return buf.Bytes(), nil // 직렬화한 결과를 반환
 }
 
 // 트랜잭션의 수수료를 반환하는 함수
@@ -195,6 +266,138 @@ func (t Tx) SigHash(inputIndex int, redeemScripts ...*script.Script) ([]byte, er
 	return h256, nil // 해시를 반환
 }
 
+// BIP143에 따라 트랜잭션의 서명해시를 반환하는 함수
+func (t *Tx) SigHashBIP143(inputIndex int, redeemScript *script.Script, witnessScript *script.Script) ([]byte, error) {
+	if inputIndex >= len(t.Inputs) {
+		return nil, fmt.Errorf("input index %d greater than the number of inputs %d", inputIndex, len(t.Inputs))
+	}
+
+	txin := t.Inputs[inputIndex] // 입력을 가져옴
+
+	s := utils.IntToLittleEndian(t.Version, 4) // 버전
+
+	s = append(s, t.HashPrevOuts...)                             // 이전 트랜잭션 출력의 해시
+	s = append(s, t.HashSequence...)                             // 시퀀스 번호의 해시
+	s = append(s, utils.ReverseBytes([]byte(txin.PrevTx))...)    // 이전 트랜잭션의 해시
+	s = append(s, utils.IntToLittleEndian(txin.PrevIndex, 4)...) // 이전 트랜잭션의 출력 인덱스
+
+	if witnessScript != nil {
+		scriptCode, err := witnessScript.Serialize()
+		if err != nil {
+			return nil, err
+		}
+
+		s = append(s, scriptCode...)
+	} else if redeemScript != nil {
+		scriptCode, err := script.NewP2PKHScript(redeemScript.Cmds[1].Elem).Serialize()
+		if err != nil {
+			return nil, err
+		}
+
+		s = append(s, scriptCode...)
+	} else {
+		scriptPubkey, err := txin.ScriptPubKey(NewTxFetcher(), t.Testnet)
+		if err != nil {
+			return nil, err
+		}
+
+		scriptCode, err := script.NewP2PKHScript(scriptPubkey.Cmds[1].Elem).Serialize()
+		if err != nil {
+			return nil, err
+		}
+
+		s = append(s, scriptCode...)
+	}
+
+	val, err := txin.Value(NewTxFetcher(), t.Testnet)
+	if err != nil {
+		return nil, err
+	}
+
+	s = append(s, utils.IntToLittleEndian(val, 8)...)        // 이전 트랜잭션 출력의 금액
+	s = append(s, utils.IntToLittleEndian(txin.SeqNo, 4)...) // 시퀀스 번호
+	hashOutputs, err := t.hashOutputs()
+	if err != nil {
+		return nil, err
+	}
+
+	s = append(s, hashOutputs...)                             // 출력의 해시
+	s = append(s, utils.IntToLittleEndian(t.Locktime, 4)...)  // 유효 시점
+	s = append(s, utils.IntToLittleEndian(SIGHASH_ALL, 4)...) // SIGHASH_ALL (4바이트)
+
+	h256 := utils.Hash256(s) // 해시를 생성
+
+	return h256, nil // 해시를 반환
+}
+
+func (t *Tx) hashPrevouts() ([]byte, error) {
+	if t.HashPrevOuts != nil {
+		return t.HashPrevOuts, nil
+	}
+
+	hashBuf := new(bytes.Buffer)
+	seqBuf := new(bytes.Buffer)
+
+	for _, input := range t.Inputs {
+		_, err := hashBuf.Write(utils.ReverseBytes([]byte(input.PrevTx)))
+		if err != nil {
+			return nil, err
+		}
+
+		_, err = hashBuf.Write(utils.IntToLittleEndian(input.PrevIndex, 4))
+		if err != nil {
+			return nil, err
+		}
+
+		_, err = seqBuf.Write(utils.IntToLittleEndian(input.SeqNo, 4))
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	t.HashPrevOuts = utils.Hash256(hashBuf.Bytes())
+	t.HashSequence = utils.Hash256(seqBuf.Bytes())
+
+	return t.HashPrevOuts, nil
+}
+
+func (t *Tx) hashSequence() ([]byte, error) {
+	if t.HashSequence != nil {
+		return t.HashSequence, nil
+	}
+
+	_, err := t.hashPrevouts()
+	if err != nil {
+		return nil, err
+	}
+
+	return t.HashSequence, nil
+}
+
+func (t *Tx) hashOutputs() ([]byte, error) {
+	if t.HashOutputs != nil {
+		return t.HashOutputs, nil
+	}
+
+	buf := new(bytes.Buffer)
+
+	for _, output := range t.Outputs {
+		b, err := output.Serialize()
+		if err != nil {
+			return nil, err
+		}
+
+		_, err = buf.Write(b)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	t.HashOutputs = utils.Hash256(buf.Bytes())
+
+	return t.HashOutputs, nil
+}
+
 // 서명해시를 만들 때 사용할 입력 목록을 직렬화한 결과를 반환하는 함수
 func (t Tx) serializeInputsForSig(inputIndex int, redeemScripts ...*script.Script) ([]byte, error) {
 	inputs := t.Inputs
@@ -244,29 +447,43 @@ func (t Tx) VerifyInput(inputIndex int) (bool, error) {
 	}
 
 	var redeemScripts []*script.Script // 리딤 스크립트 목록
+	var witness [][]byte               // 증인 데이터 목록
 
-	if script.IsP2shScriptPubkey(scriptPubKey.Cmds) { // 이전 트랜잭션 출력의 잠금 스크립트가 P2SH 스크립트인 경우
-		rawRedeem, ok := scriptSig.Cmds[len(scriptSig.Cmds)-1].([]byte) // 해제 스크립트의 마지막 원소가 리딤 스크립트
-		if !ok {
-			return false, fmt.Errorf("last element should be the redeem script")
+	if script.IsP2shScriptPubkey(scriptPubKey.Cmds) { // 이전 트랜잭션 출력의 잠금 스크립트가 p2sh 스크립트인 경우
+		command := scriptSig.Cmds[len(scriptSig.Cmds)-1] // 해제 스크립트의 마지막 원소를 가져옴
+		if command.IsOpCode {
+			return false, fmt.Errorf("last command must be data: %s", command.Code.String())
 		}
 
-		redeemScript, _, err := script.Parse(append([]byte{byte(len(rawRedeem))}, rawRedeem...)) // 리딤 스크립트 파싱
+		redeemScript, _, err := script.Parse(append(utils.IntToLittleEndian(len(command.Elem), 1), command.Elem...)) // 리딤 스크립트 파싱
 		if err != nil {
 			return false, err
 		}
 
-		redeemScripts = append(redeemScripts, redeemScript)
+		if script.IsP2wpkhScriptPubkey(redeemScript.Cmds) { // 리딤 스크립트가 p2wpkh 스크립트인 경우
+			witness = input.Witness // 증인 데이터
+		}
+
+		redeemScripts = append(redeemScripts, redeemScript) // 리딤 스크립트를 리딤 스크립트 목록에 추가
 	}
 
-	z, err := t.SigHash(inputIndex, redeemScripts...) // 서명해시를 가져옴
-	if err != nil {
-		return false, err
+	var z []byte
+
+	if witness != nil { // 증인 데이터가 있으면
+		z, err = t.SigHashBIP143(inputIndex, redeemScripts[0], nil) // BIP143에 따라 서명해시를 생성
+		if err != nil {
+			return false, err
+		}
+	} else {
+		z, err = t.SigHash(inputIndex, redeemScripts...) // 서명해시를 생성
+		if err != nil {
+			return false, err
+		}
 	}
 
 	combined := scriptSig.Add(scriptPubKey) // 해제 스크립트와 잠금 스크립트를 결합
 
-	return combined.Evaluate(z) // 결합한 스크립트를 평가
+	return combined.Evaluate(z, witness) // 결합한 스크립트를 평가
 }
 
 // 트랜잭션의 입력에 서명하는 함수
@@ -290,7 +507,7 @@ func (t Tx) SignInput(inputIndex int, privateKey ecc.PrivateKey, compressed bool
 	sig := append(der, byte(SIGHASH_ALL))     // 직렬화한 서명에 해시 유형을 추가 (SIGHASH_ALL)
 	sec := privateKey.Point().SEC(compressed) // 공개 키를 SEC 형식으로 직렬화 (압축)
 
-	scriptSig := script.New(sig, sec) // 해제 스크립트 생성
+	scriptSig := script.New(script.NewElem(sig), script.NewElem(sec)) // 해제 스크립트 생성
 
 	t.Inputs[inputIndex].ScriptSig = scriptSig // 트랜잭션의 입력에 해제 스크립트를 설정
 
@@ -339,10 +556,12 @@ func (t Tx) CoinbaseHeight() (bool, int) {
 
 	// 코인베이스 트랜잭션의 해제 스크립트에서 높이를 가져옴
 	scriptSig := t.Inputs[0].ScriptSig
-	heightBytes, ok := scriptSig.Cmds[0].([]byte)
-	if !ok {
+
+	if len(scriptSig.Cmds) < 2 || len(scriptSig.Cmds[0].Elem) == 0 {
 		return false, 0
 	}
+
+	heightBytes := scriptSig.Cmds[0].Elem // 높이를 나타내는 바이트
 
 	return true, utils.LittleEndianToInt(heightBytes) // 리틀엔디언으로 인코딩된 높이를 반환
 }
@@ -353,6 +572,7 @@ type TxIn struct {
 	PrevTx    string         // 이전 트랜잭션의 해시
 	ScriptSig *script.Script // 해제 스크립트
 	SeqNo     int            // 시퀀스 번호
+	Witness   [][]byte       // 증인 데이터 목록 (세그윗 트랜잭션인 경우)
 }
 
 // TxIn 생성자 함수

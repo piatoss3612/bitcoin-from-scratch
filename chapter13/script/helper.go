@@ -11,8 +11,8 @@ func Parse(b []byte) (*Script, int, error) {
 
 	buf := bytes.NewBuffer(b[read:]) // 가변 정수를 제외한 나머지 스크립트를 버퍼에 저장
 
-	var cmds []any // 스크립트 명령어를 저장할 슬라이스
-	var count int  // 읽은 바이트 수
+	var cmds []Command // 스크립트 명령어를 저장할 슬라이스
+	var count int      // 읽은 바이트 수
 
 	// 읽어들인 바이트 수가 전체 길이보다 작은 동안 반복
 	for count < length {
@@ -22,23 +22,20 @@ func Parse(b []byte) (*Script, int, error) {
 		currentByte := current[0]
 
 		if currentByte >= 1 && currentByte <= 75 { // 바이트 값이 1에서 75 사이인 경우: 해당 길이만큼 데이터를 읽어 원소로 추가
-			dataLength := int(currentByte)
-			data := buf.Next(dataLength)
-			count += dataLength
-			cmds = append(cmds, data)
+			n := int(currentByte)                     // 읽어들인 바이트 값을 정수로 변환
+			cmds = append(cmds, NewElem(buf.Next(n))) // 해당 길이만큼 데이터를 읽어 원소로 추가
+			count += n                                // 읽은 바이트 수를 해당 길이만큼 증가
 		} else if currentByte == 76 { // 바이트 값이 76인 경우: OP_PUSHDATA1에 해당하므로 다음 한 바이트를 더 읽어 해당 길이만큼 데이터를 읽어 원소로 추가
-			dataLength := utils.LittleEndianToInt(buf.Next(1))
-			data := buf.Next(dataLength)
-			cmds = append(cmds, data)
-			count += dataLength + 1
+			n := utils.LittleEndianToInt(buf.Next(1))
+			cmds = append(cmds, NewElem(buf.Next(n)))
+			count += n + 1
 		} else if currentByte == 77 { // 바이트 값이 77인 경우: OP_PUSHDATA2에 해당하므로 다음 두 바이트를 더 읽어 해당 길이만큼 데이터를 읽어 원소로 추가
-			dataLength := utils.LittleEndianToInt(buf.Next(2))
-			data := buf.Next(dataLength)
-			cmds = append(cmds, data)
-			count += dataLength + 2
+			n := utils.LittleEndianToInt(buf.Next(2))
+			cmds = append(cmds, NewElem(buf.Next(n)))
+			count += n + 2
 		} else { // 그 외의 경우: 해당 바이트 값을 연산자로 간주하여 추가
 			opCode := int(currentByte)
-			cmds = append(cmds, opCode)
+			cmds = append(cmds, NewOpCode(OpCode(opCode)))
 		}
 	}
 
@@ -53,38 +50,24 @@ func Parse(b []byte) (*Script, int, error) {
 
 func NewP2PKHScript(h160 []byte) *Script {
 	return New(
-		0x76, // OP_DUP
-		0xa9, // OP_HASH160
-		h160, // 20바이트의 데이터
-		0x88, // OP_EQUALVERIFY
-		0xac, // OP_CHECKSIG
+		NewOpCode(0x76), // OP_DUP
+		NewOpCode(0xa9), // OP_HASH160
+		NewElem(h160),   // 20바이트의 데이터
+		NewOpCode(0x88), // OP_EQUALVERIFY
+		NewOpCode(0xac), // OP_CHECKSIG
 	)
 }
 
-func IsP2pkhScriptPubkey(cmds []any) bool {
-	if len(cmds) != 5 {
-		return false
-	}
-
-	opCodeDup, ok1 := cmds[0].(int)
-	opCodeHash160, ok2 := cmds[1].(int)
-	h160, ok3 := cmds[2].([]byte)
-	opCodeEqualVerify, ok4 := cmds[3].(int)
-	opCodeCheckSig, ok5 := cmds[4].(int)
-
-	return ok1 && ok2 && ok3 && ok4 && ok5 &&
-		opCodeDup == 0x76 && opCodeHash160 == 0xa9 && len(h160) == 20 && opCodeEqualVerify == 0x88 && opCodeCheckSig == 0xac
+func IsP2pkhScriptPubkey(cmds []Command) bool {
+	return len(cmds) == 5 && cmds[0].Code == OpCodeDup && cmds[1].Code == OpCodeHash160 &&
+		len(cmds[2].Elem) == 20 && cmds[3].Code == OpCodeEqualVerify && cmds[4].Code == OpCodeCheckSig
 }
 
-func IsP2shScriptPubkey(cmds []any) bool {
-	if len(cmds) != 3 {
-		return false
-	}
+func IsP2shScriptPubkey(cmds []Command) bool {
+	return len(cmds) == 3 && cmds[0].Code == OpCodeHash160 &&
+		len(cmds[1].Elem) == 20 && cmds[2].Code == OpCodeEqual
+}
 
-	opCodeHash160, ok1 := cmds[0].(int)
-	h160, ok2 := cmds[1].([]byte)
-	opCodeEqual, ok3 := cmds[2].(int)
-
-	return ok1 && ok2 && ok3 &&
-		opCodeHash160 == 0xa9 && len(h160) == 20 && opCodeEqual == 0x87
+func IsP2wpkhScriptPubkey(cmds []Command) bool {
+	return len(cmds) == 2 && cmds[0].Code == OpCode0 && len(cmds[1].Elem) == 20
 }
