@@ -149,18 +149,18 @@ func parseSegwitTx(b []byte, testnet bool) (*Tx, error) {
 func ParseTxIn(b []byte) (*TxIn, int, error) {
 	buf := bytes.NewBuffer(b)
 
-	prevTx := utils.ReverseBytes(buf.Next(32))
+	prevTx := utils.ReverseBytes(buf.Next(32)) // 이전 트랜잭션의 해시값 (32바이트, 리틀엔디언)
 
-	prevIndex := utils.LittleEndianToInt(buf.Next(4))
+	prevIndex := utils.LittleEndianToInt(buf.Next(4)) // 이전 트랜잭션의 인덱스 (4바이트, 리틀엔디언)
 
-	scriptSig, read, err := script.Parse(buf.Bytes())
+	scriptSig, read, err := script.Parse(buf.Bytes()) // 스크립트 (가변)
 	if err != nil {
 		return nil, 0, err
 	}
 
 	buf.Next(read)
 
-	seqNo := utils.LittleEndianToInt(buf.Next(4))
+	seqNo := utils.LittleEndianToInt(buf.Next(4)) // 시퀀스 번호 (4바이트, 리틀엔디언)
 
 	return NewTxIn(hex.EncodeToString(prevTx), prevIndex, scriptSig, seqNo), 40 + read, nil
 }

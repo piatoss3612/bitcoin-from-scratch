@@ -57,8 +57,7 @@ func (t Tx) ID() (string, error) {
 
 // 트랜잭션의 해시를 반환하는 함수
 func (t Tx) Hash() ([]byte, error) {
-	t.Segwit = false // 세그윗 여부를 false로 설정 (세그윗이든 아니든 해시는 동일하게 계산)
-	s, err := t.Serialize()
+	s, err := t.serializeLegacy()
 	if err != nil {
 		return nil, err
 	}
@@ -126,44 +125,68 @@ func (t Tx) serializeLegacy() ([]byte, error) {
 }
 
 func (t Tx) serializeSegwit() ([]byte, error) {
-	panic("not implemented")
-}
+	buf := new(bytes.Buffer)
 
-// 트랜잭션 입력 목록을 직렬화한 결과를 반환하는 함수
-func (t Tx) serializeInputs() ([]byte, error) {
-	inputs := t.Inputs
+	_, err := buf.Write(utils.IntToLittleEndian(t.Version, 4)) // 버전 (4바이트, 리틀엔디언)
+	if err != nil {
+		return nil, err
+	}
 
-	result := utils.EncodeVarint(len(inputs)) // 입력 개수
+	_, err = buf.Write([]byte{0x00, 0x01}) // 마커 (0x00), 플래그 (0x01)
+	if err != nil {
+		return nil, err
+	}
 
-	// 입력 개수만큼 반복하면서 각 입력을 직렬화한 결과를 result에 추가
-	for _, input := range inputs {
+	_, err = buf.Write(utils.EncodeVarint(len(t.Inputs))) // 입력 개수 (가변 정수)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, input := range t.Inputs {
 		s, err := input.Serialize()
 		if err != nil {
 			return nil, err
 		}
 
-		result = append(result, s...)
+		_, err = buf.Write(s) // 입력
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	return result, nil // 직렬화한 결과를 반환
-}
+	_, err = buf.Write(utils.EncodeVarint(len(t.Outputs))) // 출력 개수
+	if err != nil {
+		return nil, err
+	}
 
-// 트랜잭션 출력 목록을 직렬화한 결과를 반환하는 함수
-func (t Tx) serializeOutputs() ([]byte, error) {
-	outputs := t.Outputs
-
-	result := utils.EncodeVarint(len(outputs)) // 출력 개수
-
-	// 출력 개수만큼 반복하면서 각 출력을 직렬화한 결과를 result에 추가
-	for _, output := range outputs {
+	for _, output := range t.Outputs {
 		s, err := output.Serialize()
 		if err != nil {
 			return nil, err
 		}
-		result = append(result, s...)
+
+		_, err = buf.Write(s) // 출력
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	return result, nil // 직렬화한 결과를 반환
+	witnesses, err := t.serializeWitnesses()
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = buf.Write(witnesses) // 증인 데이터
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = buf.Write(utils.IntToLittleEndian(t.Locktime, 4)) // 유효 시점
+	if err != nil {
+		return nil, err
+	}
+
+	return buf.Bytes(), nil
 }
 
 // 증인 데이터를 직렬화한 결과를 반환하는 함수
@@ -248,27 +271,73 @@ func (t Tx) SigHash(inputIndex int, redeemScripts ...*script.Script) ([]byte, er
 		return nil, fmt.Errorf("input index %d greater than the number of inputs %d", inputIndex, len(t.Inputs))
 	}
 
-	s := utils.IntToLittleEndian(t.Version, 4) // 버전
+	buf := new(bytes.Buffer)
 
-	in, err := t.serializeInputsForSig(inputIndex, redeemScripts...) // 입력 목록, 입력의 인덱스와 리딤 스크립트 목록을 사용
+	_, err := buf.Write(utils.IntToLittleEndian(t.Version, 4)) // 버전 (4바이트, 리틀엔디언)
 	if err != nil {
 		return nil, err
 	}
 
-	s = append(s, in...)
-
-	out, err := t.serializeOutputs() // 출력 목록
+	_, err = buf.Write(utils.EncodeVarint(len(t.Inputs))) // 입력 개수 (가변 정수)
 	if err != nil {
 		return nil, err
 	}
 
-	s = append(s, out...)
+	for i, input := range t.Inputs {
+		var scriptSig *script.Script // 해제 스크립트, 기본값은 nil
 
-	s = append(s, utils.IntToLittleEndian(t.Locktime, 4)...) // 유효 시점
+		if i == inputIndex { // 입력 인덱스가 inputIndex와 같으면
+			if len(redeemScripts) > 0 { // 리딤 스크립트가 있으면
+				scriptSig = redeemScripts[0] // 리딤 스크립트를 사용
+			} else {
+				scriptPubKey, err := input.ScriptPubKey(NewTxFetcher(), t.Testnet) // 이전 트랜잭션 출력의 잠금 스크립트를 가져옴
+				if err != nil {
+					return nil, err
+				}
 
-	s = append(s, utils.IntToLittleEndian(SIGHASH_ALL, 4)...) // SIGHASH_ALL (4바이트)
+				scriptSig = scriptPubKey // 이전 트랜잭션 출력의 잠금 스크립트를 사용
+			}
+		}
 
-	h256 := utils.Hash256(s) // 해시를 생성
+		s, err := NewTxIn(input.PrevTx, input.PrevIndex, scriptSig, input.SeqNo).Serialize() // scriptSig를 사용하는 새로운 입력을 생성하고 직렬화
+		if err != nil {
+			return nil, err
+		}
+
+		_, err = buf.Write(s) // 직렬화한 결과를 buf에 추가
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	_, err = buf.Write(utils.EncodeVarint(len(t.Outputs))) // 출력 개수
+	if err != nil {
+		return nil, err
+	}
+
+	for _, output := range t.Outputs {
+		s, err := output.Serialize()
+		if err != nil {
+			return nil, err
+		}
+
+		_, err = buf.Write(s) // 출력
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	_, err = buf.Write(utils.IntToLittleEndian(t.Locktime, 4)) // 유효 시점 (4바이트, 리틀엔디언)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = buf.Write(utils.IntToLittleEndian(SIGHASH_ALL, 4)) // SIGHASH_ALL (4바이트, 리틀엔디언)
+	if err != nil {
+		return nil, err
+	}
+
+	h256 := utils.Hash256(buf.Bytes()) // 해시를 생성
 
 	return h256, nil // 해시를 반환
 }
@@ -416,39 +485,6 @@ func (t *Tx) hashOutputs() ([]byte, error) {
 	return t.HashOutputs, nil
 }
 
-// 서명해시를 만들 때 사용할 입력 목록을 직렬화한 결과를 반환하는 함수
-func (t Tx) serializeInputsForSig(inputIndex int, redeemScripts ...*script.Script) ([]byte, error) {
-	inputs := t.Inputs
-
-	result := utils.EncodeVarint(len(inputs)) // 입력 개수
-
-	for i, input := range inputs {
-		var scriptSig *script.Script // 해제 스크립트, 기본값은 nil
-
-		if i == inputIndex { // 입력 인덱스가 inputIndex와 같으면
-			if len(redeemScripts) > 0 { // 리딤 스크립트가 있으면
-				scriptSig = redeemScripts[0] // 리딤 스크립트를 사용
-			} else {
-				scriptPubKey, err := input.ScriptPubKey(NewTxFetcher(), t.Testnet) // 이전 트랜잭션 출력의 잠금 스크립트를 가져옴
-				if err != nil {
-					return nil, err
-				}
-
-				scriptSig = scriptPubKey // 이전 트랜잭션 출력의 잠금 스크립트를 사용
-			}
-		}
-
-		s, err := NewTxIn(input.PrevTx, input.PrevIndex, scriptSig, input.SeqNo).Serialize() // scriptSig를 사용하는 새로운 입력을 생성하고 직렬화
-		if err != nil {
-			return nil, err
-		}
-
-		result = append(result, s...) // 직렬화한 결과를 result에 추가
-	}
-
-	return result, nil // 직렬화한 결과를 반환
-}
-
 // 트랜잭션의 입력을 검증하는 함수
 func (t Tx) VerifyInput(inputIndex int) (bool, error) {
 	if inputIndex >= len(t.Inputs) {
@@ -463,6 +499,9 @@ func (t Tx) VerifyInput(inputIndex int) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+
+	fmt.Println("scriptSig:", scriptSig)
+	fmt.Println("scriptPubKey:", scriptPubKey)
 
 	var redeemScripts []*script.Script // 리딤 스크립트 목록
 	var witness [][]byte               // 증인 데이터 목록

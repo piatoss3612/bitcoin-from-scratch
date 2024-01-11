@@ -70,14 +70,16 @@ func DecodeBase58(s string) ([]byte, error) {
 	return combined[1 : len(combined)-4], nil // prefix를 제외하고 체크섬을 제외한 바이트 슬라이스를 반환
 }
 
-// 바이트 슬라이스를 뒤집는 함수
+// 바이트 슬라이스를 뒤집는 함수 (원래의 순서를 변경하지 않도록 복사본을 만듬)
 func ReverseBytes(b []byte) []byte {
 	n := len(b)
-	for i, j := 0, n-1; i < j; i, j = i+1, j-1 {
-		b[i], b[j] = b[j], b[i] // 바이트 슬라이스의 앞뒤를 서로 바꿈
+	result := make([]byte, n)
+
+	for i := 0; i <= n/2; i++ {
+		result[i], result[n-1-i] = b[n-1-i], b[i]
 	}
 
-	return b
+	return result
 }
 
 // 바이트 슬라이스의 체크섬을 추가하여 base58로 인코딩하는 함수

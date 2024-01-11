@@ -2,8 +2,9 @@ package tx
 
 import (
 	"bytes"
+	"chapter13/ecc"
 	"encoding/hex"
-	"fmt"
+	"math/big"
 	"testing"
 )
 
@@ -90,16 +91,13 @@ func TestParseTx(t *testing.T) {
 	}
 }
 
-// TODO: Serialize went wrong
 func TestSerialize(t *testing.T) {
 	rawTx, _ := hex.DecodeString("0100000001813f79011acb80925dfe69b3def355fe914bd1d96a3f5f71bf8303c6a989c7d1000000006b483045022100ed81ff192e75a3fd2304004dcadb746fa5e24c5031ccfcf21320b0277457c98f02207a986d955c6e0cb35d446a89d3f56100f4d7f67801c31967743a9c8e10615bed01210349fc4e631e3624a545de3f89f5d8684c7b8138bd94bdd531d2e213bf016b278afeffffff02a135ef01000000001976a914bc3b654dca7e56b04dca18f2566cdaf02e8d9ada88ac99c39800000000001976a9141c4bc762dd5423e332166702cb75f40df79fea1288ac19430600")
+
 	tx, err := ParseTx(rawTx)
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	fmt.Println(tx.Segwit)
-	fmt.Println(tx)
 
 	b, err := tx.Serialize()
 	if err != nil {
@@ -109,13 +107,6 @@ func TestSerialize(t *testing.T) {
 	if !bytes.Equal(b, rawTx) {
 		t.Errorf("expected %x, got %x", rawTx, b)
 	}
-
-	tx, err = ParseTx(b)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	fmt.Println(tx)
 }
 
 func TestInput(t *testing.T) {
@@ -218,6 +209,64 @@ func TestSigHash(t *testing.T) {
 	}
 }
 
+func TestVerifyP2pkh(t *testing.T) {
+	f := NewTxFetcher()
+
+	txId := "452c629d67e41baec3ac6f04fe744b4b9617f8f859c63b3002f8684e7a4fee03"
+
+	tx, err := f.Fetch(txId, false, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ok, err := tx.Verify()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !ok {
+		t.Fatal("tx verification failed")
+	}
+
+	txId2 := "5418099cc755cb9dd3ebc6cf1a7888ad53a1a3beb5a025bce89eb1bf7f1650a2"
+
+	tx, err = f.Fetch(txId2, true, false) // testnet
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ok, err = tx.Verify()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !ok {
+		t.Fatal("tx verification failed")
+	}
+}
+
+func TestVerifyP2sh(t *testing.T) {
+	f := NewTxFetcher()
+
+	txId := "46df1a9484d0a81d03ce0ee543ab6e1a23ed06175c104a178268fad381216c2b"
+
+	tx, err := f.Fetch(txId, false, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ok, err := tx.Verify()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !ok {
+		t.Fatal("tx verification failed")
+	}
+}
+
+// TODO: Fix this test
+// REASON: failed to evaluate OP_DUP
 func TestVerifyP2wpkh(t *testing.T) {
 	f := NewTxFetcher()
 
@@ -235,5 +284,86 @@ func TestVerifyP2wpkh(t *testing.T) {
 
 	if !ok {
 		t.Fatal("tx verification failed")
+	}
+}
+
+func TestSignInput(t *testing.T) {
+	secret := big.NewInt(8675309)
+	pvk, _ := ecc.NewS256PrivateKey(secret.Bytes())
+
+	rawTx, _ := hex.DecodeString("010000000199a24308080ab26e6fb65c4eccfadf76749bb5bfa8cb08f291320b3c21e56f0d0d00000000ffffffff02408af701000000001976a914d52ad7ca9b3d096a38e752c2018e6fbc40cdf26f88ac80969800000000001976a914507b27411ccf7f16f10297de6cef3f291623eddf88ac00000000")
+
+	tx, err := ParseTx(rawTx, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ok, err := tx.SignInput(0, pvk, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !ok {
+		t.Fatal("signing failed")
+	}
+
+	expected, _ := hex.DecodeString("010000000199a24308080ab26e6fb65c4eccfadf76749bb5bfa8cb08f291320b3c21e56f0d0d0000006b4830450221008ed46aa2cf12d6d81065bfabe903670165b538f65ee9a3385e6327d80c66d3b502203124f804410527497329ec4715e18558082d489b218677bd029e7fa306a72236012103935581e52c354cd2f484fe8ed83af7a3097005b2f9c60bff71d35bd795f54b67ffffffff02408af701000000001976a914d52ad7ca9b3d096a38e752c2018e6fbc40cdf26f88ac80969800000000001976a914507b27411ccf7f16f10297de6cef3f291623eddf88ac00000000")
+
+	b, err := tx.Serialize()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !bytes.Equal(b, expected) {
+		t.Errorf("expected %x, got %x", expected, b)
+	}
+}
+
+func TestIsCoinbase(t *testing.T) {
+	rawTx, _ := hex.DecodeString("01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff5e03d71b07254d696e656420627920416e74506f6f6c20626a31312f4542312f4144362f43205914293101fabe6d6d678e2c8c34afc36896e7d9402824ed38e856676ee94bfdb0c6c4bcd8b2e5666a0400000000000000c7270000a5e00e00ffffffff01faf20b58000000001976a914338c84849423992471bffb1a54a8d9b1d69dc28a88ac00000000")
+
+	tx, err := ParseTx(rawTx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !tx.IsCoinbase() {
+		t.Error("expected coinbase tx")
+	}
+}
+
+func TestCoinbaseHeight(t *testing.T) {
+	rawTx, _ := hex.DecodeString("01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff5e03d71b07254d696e656420627920416e74506f6f6c20626a31312f4542312f4144362f43205914293101fabe6d6d678e2c8c34afc36896e7d9402824ed38e856676ee94bfdb0c6c4bcd8b2e5666a0400000000000000c7270000a5e00e00ffffffff01faf20b58000000001976a914338c84849423992471bffb1a54a8d9b1d69dc28a88ac00000000")
+
+	tx, err := ParseTx(rawTx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := 465879
+
+	ok, actual := tx.CoinbaseHeight()
+	if !ok {
+		t.Error("expected coinbase tx")
+	}
+
+	if actual != expected {
+		t.Errorf("expected %d, got %d", expected, actual)
+	}
+
+	rawTx, _ = hex.DecodeString("0100000001813f79011acb80925dfe69b3def355fe914bd1d96a3f5f71bf8303c6a989c7d1000000006b483045022100ed81ff192e75a3fd2304004dcadb746fa5e24c5031ccfcf21320b0277457c98f02207a986d955c6e0cb35d446a89d3f56100f4d7f67801c31967743a9c8e10615bed01210349fc4e631e3624a545de3f89f5d8684c7b8138bd94bdd531d2e213bf016b278afeffffff02a135ef01000000001976a914bc3b654dca7e56b04dca18f2566cdaf02e8d9ada88ac99c39800000000001976a9141c4bc762dd5423e332166702cb75f40df79fea1288ac19430600")
+
+	tx, err = ParseTx(rawTx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ok, actual = tx.CoinbaseHeight()
+	if ok {
+		t.Error("expected non-coinbase tx")
+	}
+
+	if actual != 0 {
+		t.Errorf("expected 0, got %d", actual)
 	}
 }
