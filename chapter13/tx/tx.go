@@ -68,47 +68,50 @@ func (t Tx) Hash() ([]byte, error) {
 
 // 트랜잭션을 직렬화한 결과를 반환하는 함수
 func (t Tx) Serialize() ([]byte, error) {
+	if t.Segwit { // 세그윗 트랜잭션인 경우
+		return t.serializeSegwit()
+	}
+
+	return t.serializeLegacy()
+}
+
+func (t Tx) serializeLegacy() ([]byte, error) {
 	buf := new(bytes.Buffer)
 
-	_, err := buf.Write(utils.IntToLittleEndian(t.Version, 4)) // 버전
+	_, err := buf.Write(utils.IntToLittleEndian(t.Version, 4)) // 버전 (4바이트, 리틀엔디언)
 	if err != nil {
 		return nil, err
 	}
 
-	if t.Segwit { // 세그윗 트랜잭션인 경우
-		_, err := buf.Write([]byte{0x00, 0x01}) // 마커 (0x00), 플래그 (0x01)
+	_, err = buf.Write(utils.EncodeVarint(len(t.Inputs))) // 입력 개수 (가변 정수)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, input := range t.Inputs {
+		s, err := input.Serialize()
+		if err != nil {
+			return nil, err
+		}
+
+		_, err = buf.Write(s) // 입력
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	in, err := t.serializeInputs() // 입력 목록
+	_, err = buf.Write(utils.EncodeVarint(len(t.Outputs))) // 출력 개수
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = buf.Write(in)
-	if err != nil {
-		return nil, err
-	}
-
-	out, err := t.serializeOutputs() // 출력 목록
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = buf.Write(out)
-	if err != nil {
-		return nil, err
-	}
-
-	if t.Segwit { // 세그윗 트랜잭션인 경우
-		witnesses, err := t.serializeWitnesses() // 증인 데이터
+	for _, output := range t.Outputs {
+		s, err := output.Serialize()
 		if err != nil {
 			return nil, err
 		}
 
-		_, err = buf.Write(witnesses)
+		_, err = buf.Write(s) // 출력
 		if err != nil {
 			return nil, err
 		}
@@ -120,6 +123,10 @@ func (t Tx) Serialize() ([]byte, error) {
 	}
 
 	return buf.Bytes(), nil
+}
+
+func (t Tx) serializeSegwit() ([]byte, error) {
+	panic("not implemented")
 }
 
 // 트랜잭션 입력 목록을 직렬화한 결과를 반환하는 함수
@@ -276,8 +283,19 @@ func (t *Tx) SigHashBIP143(inputIndex int, redeemScript *script.Script, witnessS
 
 	s := utils.IntToLittleEndian(t.Version, 4) // 버전
 
-	s = append(s, t.HashPrevOuts...)                             // 이전 트랜잭션 출력의 해시
-	s = append(s, t.HashSequence...)                             // 시퀀스 번호의 해시
+	hashPrevOuts, err := t.hashPrevouts()
+	if err != nil {
+		return nil, err
+	}
+
+	s = append(s, hashPrevOuts...) // 이전 트랜잭션 출력의 해시
+
+	hashSequence, err := t.hashSequence()
+	if err != nil {
+		return nil, err
+	}
+
+	s = append(s, hashSequence...)                               // 시퀀스 번호의 해시
 	s = append(s, utils.ReverseBytes([]byte(txin.PrevTx))...)    // 이전 트랜잭션의 해시
 	s = append(s, utils.IntToLittleEndian(txin.PrevIndex, 4)...) // 이전 트랜잭션의 출력 인덱스
 
@@ -607,17 +625,17 @@ func (t TxIn) Serialize() ([]byte, error) {
 		return nil, err
 	}
 
-	result := utils.ReverseBytes(hexPrevTx)
+	result := utils.ReverseBytes(hexPrevTx) // 이전 트랜잭션의 해시 (리틀엔디언)
 
-	result = append(result, utils.IntToLittleEndian(t.PrevIndex, 4)...)
+	result = append(result, utils.IntToLittleEndian(t.PrevIndex, 4)...) // 이전 트랜잭션의 출력 인덱스 (리틀엔디언)
 
 	serializedScript, err := t.ScriptSig.Serialize()
 	if err != nil {
 		return nil, err
 	}
 
-	result = append(result, serializedScript...)
-	result = append(result, utils.IntToLittleEndian(t.SeqNo, 4)...)
+	result = append(result, serializedScript...)                    // 해제 스크립트
+	result = append(result, utils.IntToLittleEndian(t.SeqNo, 4)...) // 시퀀스 번호 (리틀엔디언)
 
 	return result, nil
 }
@@ -674,9 +692,9 @@ func (t TxOut) String() string {
 
 // TxOut을 직렬화한 결과를 반환하는 함수
 func (t TxOut) Serialize() ([]byte, error) {
-	result := utils.IntToLittleEndian(t.Amount, 8)
+	result := utils.IntToLittleEndian(t.Amount, 8) // 금액 (8바이트, 리틀엔디언)
 
-	serializedScript, err := t.ScriptPubKey.Serialize()
+	serializedScript, err := t.ScriptPubKey.Serialize() // 잠금 스크립트를 직렬화
 	if err != nil {
 		return nil, err
 	}

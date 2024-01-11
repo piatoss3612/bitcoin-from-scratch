@@ -19,7 +19,7 @@ var (
 )
 
 // 트랜잭션을 파싱하는 함수
-func ParseTx(b []byte, testnet bool) (*Tx, error) {
+func ParseTx(b []byte, testnet ...bool) (*Tx, error) {
 	buf := bytes.NewBuffer(b)
 	buf.Next(4) // skip 4 bytes
 
@@ -31,7 +31,11 @@ func ParseTx(b []byte, testnet bool) (*Tx, error) {
 		parseMethod = parseLegacyTx
 	}
 
-	return parseMethod(b, testnet)
+	if len(testnet) > 0 {
+		return parseMethod(b, testnet[0])
+	}
+
+	return parseMethod(b, false)
 }
 
 // 세그윗 이전의 트랜잭션을 파싱하는 함수
