@@ -98,10 +98,13 @@ func (b Block) Difficulty() *big.Float {
 
 // 작업증명의 유호성을 검증하는 함수
 func (b Block) CheckProofOfWork() (bool, error) {
-	hash, err := b.Hash() // 블록의 해시를 계산
+	// 블록의 해시가 아니라 블록을 직렬화한 뒤 hash256 적용 (블록 해시는 리틀엔디언으로 변환되어 있음)
+	enc, err := b.Serialize()
 	if err != nil {
 		return false, err
 	}
+
+	hash := utils.Hash256(enc)
 
 	target := BitsToTarget(utils.IntToBytes(b.Bits, 4))      // 목푯값 계산
 	proof := new(big.Int).SetBytes(utils.ReverseBytes(hash)) // 블록의 해시를 little endian으로 변환한 뒤 big.Int로 변환
