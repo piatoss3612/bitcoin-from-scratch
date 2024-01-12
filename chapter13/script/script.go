@@ -90,6 +90,25 @@ func (s Script) Evaluate(z []byte, witness [][]byte) (bool, error) {
 		cmd := cmds[0]  // 스크립트 명령어 집합의 첫 번째 원소
 		cmds = cmds[1:] // 스크립트 명령어 집합의 첫 번째 원소 제거
 
+		var res strings.Builder
+
+		for _, item := range stack {
+			switch item.(type) {
+			case int:
+				res.WriteString(fmt.Sprintf("%d ", item.(int)))
+			case []byte:
+				if len(item.([]byte)) == 0 {
+					res.WriteString("0 ")
+				} else {
+					res.WriteString(hex.EncodeToString(item.([]byte)))
+					res.WriteString(" ")
+				}
+			}
+		}
+
+		fmt.Println("stack:", res.String(), "\ncmds:", cmds, "\ncmd:", cmd)
+		fmt.Println()
+
 		// 스크립트 명령어가 연산자에 해당하는 경우
 		if cmd.IsOpCode {
 			operation := OpCodeFuncs[cmd.Code] // 연산자에 해당하는 함수 가져오기
@@ -145,6 +164,8 @@ func (s Script) Evaluate(z []byte, witness [][]byte) (bool, error) {
 			h160 := cmds[0].Elem
 			cmds = cmds[2:]
 
+			fmt.Println("Detect P2SH Script")
+
 			if !OpHash160(&stack) { // OP_HASH160 연산자 수행
 				return false, errors.New("failed to evaluate OP_HASH160")
 			}
@@ -172,9 +193,12 @@ func (s Script) Evaluate(z []byte, witness [][]byte) (bool, error) {
 
 		// p2wpkh 스크립트인 경우: 스택의 원소가 0과 20바이트의 데이터인지 확인
 		if len(stack) == 2 && len(stack[0].([]byte)) == 0 && len(stack[1].([]byte)) == 20 {
+			fmt.Println("Detect P2WPKH Script")
+
 			h160 := stack[1].([]byte) // 스택의 두 번째 원소를 20바이트의 데이터로 변환
 			// 스택의 원소를 모두 제거
 			stack = []any{}
+
 			// 명령어 집합에 witness를 추가
 			for _, item := range witness {
 				cmds = append(cmds, NewElem(item))
@@ -183,6 +207,8 @@ func (s Script) Evaluate(z []byte, witness [][]byte) (bool, error) {
 			cmds = append(cmds, NewP2PKHScript(h160).Cmds...)
 		}
 	}
+
+	fmt.Println(stack)
 
 	// 스택이 비어있는 경우: 스크립트가 유효하지 않음
 	if len(stack) == 0 {

@@ -42,8 +42,8 @@ func NewTx(version int, inputs []*TxIn, outputs []*TxOut, locktime int, testnet,
 // 트랜잭션의 문자열 표현을 반환하는 함수 (fmt.Stringer 인터페이스 구현)
 func (t Tx) String() string {
 	id, _ := t.ID()
-	return fmt.Sprintf("tx: %s\nversion: %d\ninputs: %s\noutputs: %s\nlocktime: %d",
-		id, t.Version, t.Inputs, t.Outputs, t.Locktime)
+	return fmt.Sprintf("tx: %s\nversion: %d\ninputs: %s\noutputs: %s\nlocktime: %d\nsegwit: %t\n",
+		id, t.Version, t.Inputs, t.Outputs, t.Locktime, t.Segwit)
 }
 
 // 16진수 문자열로 표현된 트랜잭션 ID를 반환하는 함수
@@ -297,6 +297,8 @@ func (t Tx) SigHash(inputIndex int, redeemScripts ...*script.Script) ([]byte, er
 
 				scriptSig = scriptPubKey // 이전 트랜잭션 출력의 잠금 스크립트를 사용
 			}
+		} else {
+			scriptSig = nil
 		}
 
 		s, err := NewTxIn(input.PrevTx, input.PrevIndex, scriptSig, input.SeqNo).Serialize() // scriptSig를 사용하는 새로운 입력을 생성하고 직렬화
@@ -503,38 +505,50 @@ func (t Tx) VerifyInput(inputIndex int) (bool, error) {
 	fmt.Println("scriptSig:", scriptSig)
 	fmt.Println("scriptPubKey:", scriptPubKey)
 
-	var redeemScripts []*script.Script // 리딤 스크립트 목록
-	var witness [][]byte               // 증인 데이터 목록
+	var z []byte
+	var witness [][]byte
 
 	if script.IsP2shScriptPubkey(scriptPubKey.Cmds) { // 이전 트랜잭션 출력의 잠금 스크립트가 p2sh 스크립트인 경우
-		command := scriptSig.Cmds[len(scriptSig.Cmds)-1] // 해제 스크립트의 마지막 원소를 가져옴
+		command := scriptSig.Cmds[len(scriptSig.Cmds)-1] // 해제 스크립트의 마지막 명령어
 		if command.IsOpCode {
-			return false, fmt.Errorf("last command must be data: %s", command.Code.String())
+			return false, fmt.Errorf("last command should be redeem script")
 		}
-
-		redeemScript, _, err := script.Parse(append(utils.IntToLittleEndian(len(command.Elem), 1), command.Elem...)) // 리딤 스크립트 파싱
+		rawRedeem := append(utils.IntToLittleEndian(len(command.Elem), 1), command.Elem...) // 리딤 스크립트를 가져옴
+		redeemScript, _, err := script.Parse(rawRedeem)                                     // 리딤 스크립트를 파싱
 		if err != nil {
 			return false, err
 		}
 
 		if script.IsP2wpkhScriptPubkey(redeemScript.Cmds) { // 리딤 스크립트가 p2wpkh 스크립트인 경우
-			witness = input.Witness // 증인 데이터
-		}
+			z, err = t.SigHashBIP143(inputIndex, redeemScript, nil) // BIP143에 따라 서명해시를 생성
+			if err != nil {
+				return false, err
+			}
 
-		redeemScripts = append(redeemScripts, redeemScript) // 리딤 스크립트를 리딤 스크립트 목록에 추가
-	}
+			witness = input.Witness
+		} else {
+			z, err = t.SigHash(inputIndex, redeemScript) // 서명해시를 생성
+			if err != nil {
+				return false, err
+			}
 
-	var z []byte
-
-	if witness != nil { // 증인 데이터가 있으면
-		z, err = t.SigHashBIP143(inputIndex, redeemScripts[0], nil) // BIP143에 따라 서명해시를 생성
-		if err != nil {
-			return false, err
+			witness = nil
 		}
 	} else {
-		z, err = t.SigHash(inputIndex, redeemScripts...) // 서명해시를 생성
-		if err != nil {
-			return false, err
+		if script.IsP2wpkhScriptPubkey(scriptPubKey.Cmds) {
+			z, err = t.SigHashBIP143(inputIndex, nil, nil)
+			if err != nil {
+				return false, err
+			}
+
+			witness = input.Witness
+		} else {
+			z, err = t.SigHash(inputIndex)
+			if err != nil {
+				return false, err
+			}
+
+			witness = nil
 		}
 	}
 
@@ -799,34 +813,44 @@ func (tf *TxFetcher) Fetch(txID string, testnet, fresh bool) (*Tx, error) {
 			return nil, err
 		}
 
-		var tx *Tx
-
-		if rawHex[4] == 0x00 {
-			rawHex = append(rawHex[:4], rawHex[6:]...)
-			parsedTx, err := ParseTx(rawHex, testnet)
-			if err != nil {
-				return nil, err
-			}
-			parsedTx.Locktime = utils.LittleEndianToInt(rawHex[len(rawHex)-4:])
-
-			tx = parsedTx
-		} else {
-			parsedTx, err := ParseTx(rawHex, testnet)
-			if err != nil {
-				return nil, err
-			}
-
-			tx = parsedTx
-		}
-
-		expectedID, err := tx.ID() // 트랜잭션의 ID를 가져옴
+		tx, err := ParseTx(rawHex, testnet) // rawHex를 파싱
 		if err != nil {
 			return nil, err
 		}
 
+		// 세그윗을 적용했으므로 필요 없는 코드. 책에는 나와있지 않음
+		// if rawHex[4] == 0x00 {
+		// 	rawHex = append(rawHex[:4], rawHex[6:]...)
+		// 	parsedTx, err := ParseTx(rawHex, testnet)
+		// 	if err != nil {
+		// 		return nil, err
+		// 	}
+		// 	parsedTx.Locktime = utils.LittleEndianToInt(rawHex[len(rawHex)-4:])
+
+		// 	tx = parsedTx
+		// } else {
+		// 	parsedTx, err := ParseTx(rawHex, testnet)
+		// 	if err != nil {
+		// 		return nil, err
+		// 	}
+
+		// 	tx = parsedTx
+		// }
+
+		var computed string
+
+		if tx.Segwit {
+			computed, err = tx.ID()
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			computed = hex.EncodeToString(utils.ReverseBytes(utils.Hash256(rawHex)))
+		}
+
 		// 가져온 트랜잭션의 ID가 txID와 다르면 에러를 반환
-		if expectedID != txID {
-			return nil, fmt.Errorf("tx ID mismatch %s != %s", expectedID, txID)
+		if computed != txID {
+			return nil, fmt.Errorf("tx ID mismatch %s != %s", computed, txID)
 		}
 
 		tf.cache[txID] = tx // 가져온 트랜잭션을 tf.cache에 저장

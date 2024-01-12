@@ -86,7 +86,6 @@ func TestS256PubPoint(t *testing.T) {
 	}
 }
 
-// TODO: second veification test case is failing
 func TestS256Verify(t *testing.T) {
 	x, _ := big.NewInt(0).SetString("0x887387e452b8eacc4acfde10d9aaf7f6d9a0f975aabb10d006e4da568744d06c", 0)
 	y, _ := big.NewInt(0).SetString("0x61de6d95231cd89026e286df3b6ae4a894a3378e393e93a0f45b666329a0ae34", 0)
@@ -132,7 +131,7 @@ func TestS256Verify(t *testing.T) {
 		t.Fatalf("failed to verify: %s", err)
 	}
 
-	if ok {
+	if !ok {
 		t.Fatalf("failed to verify")
 	}
 }

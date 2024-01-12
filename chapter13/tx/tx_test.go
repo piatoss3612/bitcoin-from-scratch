@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"chapter13/ecc"
 	"encoding/hex"
+	"fmt"
 	"math/big"
 	"testing"
 )
@@ -186,7 +187,6 @@ func TestFee(t *testing.T) {
 	}
 }
 
-// TODO: wrong sig hash
 func TestSigHash(t *testing.T) {
 	f := NewTxFetcher()
 
@@ -197,7 +197,9 @@ func TestSigHash(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	sigHash, err := tx.SigHash(0, nil)
+	fmt.Println(tx)
+
+	sigHash, err := tx.SigHash(0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -266,13 +268,37 @@ func TestVerifyP2sh(t *testing.T) {
 }
 
 // TODO: Fix this test
-// REASON: failed to evaluate OP_DUP
+// REASON: 이제 witness는 잘 가져오는데 서명 검증이 안됨;;
 func TestVerifyP2wpkh(t *testing.T) {
 	f := NewTxFetcher()
 
 	txId := "d869f854e1f8788bcff294cc83b280942a8c728de71eb709a2c29d10bfe21b7c"
 
 	tx, err := f.Fetch(txId, true, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, input := range tx.Inputs {
+		fmt.Println("Witness:", input.Witness)
+	}
+
+	ok, err := tx.Verify()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !ok {
+		t.Fatal("tx verification failed")
+	}
+}
+
+func TestVerifyP2shP2wpkh(t *testing.T) {
+	f := NewTxFetcher()
+
+	txId := "c586389e5e4b3acb9d6c8be1c19ae8ab2795397633176f5a6442a261bbdefc3a"
+
+	tx, err := f.Fetch(txId, false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
