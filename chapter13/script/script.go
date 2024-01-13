@@ -219,6 +219,47 @@ func (s Script) Evaluate(z []byte, witness [][]byte) (bool, error) {
 			// 명령어 집합에 p2pkh 스크립트를 추가
 			cmds = append(cmds, NewP2pkhScript(h160).Cmds...)
 		}
+
+		// p2wsh 스크립트인 경우: 스택의 원소가 0과 32바이트의 데이터인지 확인
+		if len(stack) == 2 && len(stack[0].([]byte)) == 0 && len(stack[1].([]byte)) == 32 {
+			h256 := stack[1].([]byte) // 스택의 가장 마지막 원소를 32바이트의 데이터로 변환
+			// 스택의 원소를 모두 제거
+			stack = []any{}
+
+			fmt.Println("h256:", hex.EncodeToString(h256))
+
+			// 증인 스크립트를 제외한 나머지 증인 데이터를 스택에 추가
+			for i := 0; i < len(witness)-1; i++ {
+				stack = append(stack, witness[i])
+			}
+
+			rawWitnessScript := witness[len(witness)-1] // witness의 마지막 원소를 증인 스크립트로 변환
+
+			fmt.Println("rawWitnessScript:", hex.EncodeToString(rawWitnessScript))
+
+			if !bytes.Equal(utils.Sha256(rawWitnessScript), h256) { // 증인 스크립트의 SHA256 해시값과 스택의 마지막 원소가 같은지 확인
+				return false, errors.New("invalid witness script")
+			}
+
+			buf := new(bytes.Buffer) // 버퍼 생성
+
+			_, err := buf.Write(utils.EncodeVarint(len(rawWitnessScript))) // 증인 스크립트의 길이를 가변 정수로 직렬화하여 버퍼에 추가
+			if err != nil {
+				return false, err
+			}
+
+			_, err = buf.Write(rawWitnessScript) // 증인 스크립트를 버퍼에 추가
+			if err != nil {
+				return false, err
+			}
+
+			witnessScript, _, err := Parse(buf.Bytes()) // 버퍼의 데이터를 스크립트로 변환
+			if err != nil {
+				return false, err
+			}
+
+			cmds = append(cmds, witnessScript.Cmds...) // 명령어 집합에 witness 스크립트를 추가
+		}
 	}
 
 	// 스택이 비어있는 경우: 스크립트가 유효하지 않음
