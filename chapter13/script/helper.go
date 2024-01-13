@@ -48,13 +48,35 @@ func Parse(b []byte) (*Script, int, error) {
 	return New(cmds...), read + length, nil
 }
 
-func NewP2PKHScript(h160 []byte) *Script {
+func NewP2pkhScript(h160 []byte) *Script {
 	return New(
-		NewOpCode(0x76), // OP_DUP
-		NewOpCode(0xa9), // OP_HASH160
-		NewElem(h160),   // 20바이트의 데이터
-		NewOpCode(0x88), // OP_EQUALVERIFY
-		NewOpCode(0xac), // OP_CHECKSIG
+		NewOpCode(OpCodeDup),         // OP_DUP
+		NewOpCode(OpCodeHash160),     // OP_HASH160
+		NewElem(h160),                // 20바이트의 데이터
+		NewOpCode(OpCodeEqualVerify), // OP_EQUALVERIFY
+		NewOpCode(OpCodeCheckSig),    // OP_CHECKSIG
+	)
+}
+
+func NewP2shScript(h160 []byte) *Script {
+	return New(
+		NewOpCode(OpCodeHash160), // OP_HASH160
+		NewElem(h160),            // 20바이트의 데이터
+		NewOpCode(OpCodeEqual),   // OP_EQUAL
+	)
+}
+
+func NewP2wpkhScript(h160 []byte) *Script {
+	return New(
+		NewOpCode(OpCode0), // OP_0
+		NewElem(h160),      // 20바이트의 데이터
+	)
+}
+
+func NewP2wshScript(h256 []byte) *Script {
+	return New(
+		NewOpCode(OpCode0), // OP_0
+		NewElem(h256),      // 32바이트의 데이터
 	)
 }
 
@@ -70,4 +92,8 @@ func IsP2shScriptPubkey(cmds []Command) bool {
 
 func IsP2wpkhScriptPubkey(cmds []Command) bool {
 	return len(cmds) == 2 && cmds[0].Code == OpCode0 && len(cmds[1].Elem) == 20
+}
+
+func IsP2wshScriptPubkey(cmds []Command) bool {
+	return len(cmds) == 2 && cmds[0].Code == OpCode0 && len(cmds[1].Elem) == 32
 }

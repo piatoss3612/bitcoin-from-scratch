@@ -3,7 +3,6 @@ package script
 import (
 	"chapter13/ecc"
 	"chapter13/utils"
-	"fmt"
 	"log"
 )
 
@@ -1435,9 +1434,6 @@ func OpCheckSig(s *[]any, z []byte) bool {
 	derSig := (*s)[len(*s)-2]
 	*s = (*s)[:len(*s)-2]
 
-	fmt.Printf("pubKey: %x\n", pubKey)
-	fmt.Printf("derSig: %x\n", derSig)
-
 	switch pubKey := pubKey.(type) {
 	case []byte:
 		switch derSig := derSig.(type) {
@@ -1450,19 +1446,13 @@ func OpCheckSig(s *[]any, z []byte) bool {
 
 			sig, err := ecc.ParseSignature(derSig)
 			if err != nil {
-				fmt.Println("line 1441:", err)
 				return false
 			}
-
-			fmt.Println("point:", point)
-			fmt.Println("sig:", sig)
 
 			ok, err := point.Verify(z, sig)
 			if err != nil {
 				return false
 			}
-
-			fmt.Println("ok:", ok)
 
 			if ok {
 				*s = append(*s, EncodeNum(1))

@@ -96,9 +96,6 @@ func (sn *SimpleNode) Read() (*NetworkEnvelope, error) {
 		return nil, err
 	}
 
-	// s := hex.EncodeToString(buf[:n])
-	fmt.Println("Read bytes:", n)
-
 	envelope, err := ParseNetworkEnvelope(buf[:n])
 	if err != nil {
 		return nil, err
@@ -126,7 +123,6 @@ func (sn *SimpleNode) WaitFor(commands []Command) (<-chan *NetworkEnvelope, <-ch
 			case <-sn.serverCloseChan:
 				return
 			default:
-				fmt.Println("Waiting for messages...")
 				envelope, err := sn.Read()
 				if err != nil {
 					// fmt.Println("Error reading message:", err)

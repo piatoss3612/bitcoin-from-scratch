@@ -171,7 +171,7 @@ func (t Tx) serializeSegwit() ([]byte, error) {
 		}
 	}
 
-	witnesses, err := t.serializeWitnesses()
+	witnesses, err := t.serializeWitnesses() // 증인 데이터를 직렬화
 	if err != nil {
 		return nil, err
 	}
@@ -352,50 +352,75 @@ func (t *Tx) SigHashBIP143(inputIndex int, redeemScript *script.Script, witnessS
 
 	txin := t.Inputs[inputIndex] // 입력을 가져옴
 
-	s := utils.IntToLittleEndian(t.Version, 4) // 버전
+	buf := new(bytes.Buffer)
 
-	hashPrevOuts, err := t.hashPrevouts()
+	_, err := buf.Write(utils.IntToLittleEndian(t.Version, 4)) // 버전 (4바이트, 리틀엔디언)
 	if err != nil {
 		return nil, err
 	}
 
-	s = append(s, hashPrevOuts...) // 이전 트랜잭션 출력의 해시
+	hashPrevOuts, err := t.hashPrevouts() // -> 잘못 구현한 부분
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = buf.Write(hashPrevOuts) // 이전 트랜잭션 출력의 해시 (32바이트)
+	if err != nil {
+		return nil, err
+	}
 
 	hashSequence, err := t.hashSequence()
 	if err != nil {
 		return nil, err
 	}
 
-	s = append(s, hashSequence...)                               // 시퀀스 번호의 해시
-	s = append(s, utils.ReverseBytes([]byte(txin.PrevTx))...)    // 이전 트랜잭션의 해시
-	s = append(s, utils.IntToLittleEndian(txin.PrevIndex, 4)...) // 이전 트랜잭션의 출력 인덱스
+	_, err = buf.Write(hashSequence) // 시퀀스 번호의 해시 (32바이트)
+	if err != nil {
+		return nil, err
+	}
+
+	hexPrevTx, err := hex.DecodeString(txin.PrevTx) // 문자열을 16진수로 디코딩 (이 부분이 빠져있었음)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = buf.Write(utils.ReverseBytes(hexPrevTx)) // 이전 트랜잭션의 해시 (32바이트, 리틀엔디언)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = buf.Write(utils.IntToLittleEndian(txin.PrevIndex, 4)) // 이전 트랜잭션의 출력 인덱스 (4바이트, 리틀엔디언)
+	if err != nil {
+		return nil, err
+	}
+
+	var scriptCode []byte
 
 	if witnessScript != nil {
-		scriptCode, err := witnessScript.Serialize()
+		scriptCode, err = witnessScript.Serialize()
 		if err != nil {
 			return nil, err
 		}
-
-		s = append(s, scriptCode...)
 	} else if redeemScript != nil {
-		scriptCode, err := script.NewP2PKHScript(redeemScript.Cmds[1].Elem).Serialize()
+		scriptCode, err = script.NewP2pkhScript(redeemScript.Cmds[1].Elem).Serialize()
 		if err != nil {
 			return nil, err
 		}
-
-		s = append(s, scriptCode...)
 	} else {
 		scriptPubkey, err := txin.ScriptPubKey(NewTxFetcher(), t.Testnet)
 		if err != nil {
 			return nil, err
 		}
 
-		scriptCode, err := script.NewP2PKHScript(scriptPubkey.Cmds[1].Elem).Serialize()
+		scriptCode, err = script.NewP2pkhScript(scriptPubkey.Cmds[1].Elem).Serialize()
 		if err != nil {
 			return nil, err
 		}
+	}
 
-		s = append(s, scriptCode...)
+	_, err = buf.Write(scriptCode) // 스크립트 코드
+	if err != nil {
+		return nil, err
 	}
 
 	val, err := txin.Value(NewTxFetcher(), t.Testnet)
@@ -403,18 +428,37 @@ func (t *Tx) SigHashBIP143(inputIndex int, redeemScript *script.Script, witnessS
 		return nil, err
 	}
 
-	s = append(s, utils.IntToLittleEndian(val, 8)...)        // 이전 트랜잭션 출력의 금액
-	s = append(s, utils.IntToLittleEndian(txin.SeqNo, 4)...) // 시퀀스 번호
+	_, err = buf.Write(utils.IntToLittleEndian(val, 8)) // 이전 트랜잭션 출력의 금액 (8바이트, 리틀엔디언)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = buf.Write(utils.IntToLittleEndian(txin.SeqNo, 4)) // 시퀀스 번호 (4바이트, 리틀엔디언)
+	if err != nil {
+		return nil, err
+	}
+
 	hashOutputs, err := t.hashOutputs()
 	if err != nil {
 		return nil, err
 	}
 
-	s = append(s, hashOutputs...)                             // 출력의 해시
-	s = append(s, utils.IntToLittleEndian(t.Locktime, 4)...)  // 유효 시점
-	s = append(s, utils.IntToLittleEndian(SIGHASH_ALL, 4)...) // SIGHASH_ALL (4바이트)
+	_, err = buf.Write(hashOutputs) // 출력의 해시 (32바이트)
+	if err != nil {
+		return nil, err
+	}
 
-	h256 := utils.Hash256(s) // 해시를 생성
+	_, err = buf.Write(utils.IntToLittleEndian(t.Locktime, 4)) // 유효 시점 (4바이트, 리틀엔디언)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = buf.Write(utils.IntToLittleEndian(SIGHASH_ALL, 4)) // SIGHASH_ALL (4바이트, 리틀엔디언)
+	if err != nil {
+		return nil, err
+	}
+
+	h256 := utils.Hash256(buf.Bytes()) // 해시를 생성
 
 	return h256, nil // 해시를 반환
 }
@@ -428,7 +472,12 @@ func (t *Tx) hashPrevouts() ([]byte, error) {
 	seqBuf := new(bytes.Buffer)
 
 	for _, input := range t.Inputs {
-		_, err := hashBuf.Write(utils.ReverseBytes([]byte(input.PrevTx)))
+		hexPrevTx, err := hex.DecodeString(input.PrevTx) // 문자열을 16진수로 디코딩 (이 부분이 빠져있었음)
+		if err != nil {
+			return nil, err
+		}
+
+		_, err = hashBuf.Write(utils.ReverseBytes(hexPrevTx))
 		if err != nil {
 			return nil, err
 		}
@@ -502,17 +551,15 @@ func (t Tx) VerifyInput(inputIndex int) (bool, error) {
 		return false, err
 	}
 
-	fmt.Println("scriptSig:", scriptSig)
-	fmt.Println("scriptPubKey:", scriptPubKey)
-
 	var z []byte
 	var witness [][]byte
 
 	if script.IsP2shScriptPubkey(scriptPubKey.Cmds) { // 이전 트랜잭션 출력의 잠금 스크립트가 p2sh 스크립트인 경우
 		command := scriptSig.Cmds[len(scriptSig.Cmds)-1] // 해제 스크립트의 마지막 명령어
-		if command.IsOpCode {
+		if command.IsOpCode {                            // 마지막 명령어가 op 코드인 경우 에러를 반환
 			return false, fmt.Errorf("last command should be redeem script")
 		}
+
 		rawRedeem := append(utils.IntToLittleEndian(len(command.Elem), 1), command.Elem...) // 리딤 스크립트를 가져옴
 		redeemScript, _, err := script.Parse(rawRedeem)                                     // 리딤 스크립트를 파싱
 		if err != nil {
@@ -521,6 +568,20 @@ func (t Tx) VerifyInput(inputIndex int) (bool, error) {
 
 		if script.IsP2wpkhScriptPubkey(redeemScript.Cmds) { // 리딤 스크립트가 p2wpkh 스크립트인 경우
 			z, err = t.SigHashBIP143(inputIndex, redeemScript, nil) // BIP143에 따라 서명해시를 생성
+			if err != nil {
+				return false, err
+			}
+
+			witness = input.Witness
+		} else if script.IsP2wshScriptPubkey(redeemScript.Cmds) { // 리딤 스크립트가 p2wsh 스크립트인 경우
+			cmd := input.Witness[len(input.Witness)-1]                         // 증인 데이터의 마지막 명령어
+			rawWitness := append(utils.IntToLittleEndian(len(cmd), 1), cmd...) // 증인 데이터를 가져옴
+			witnessScript, _, err := script.Parse(rawWitness)                  // 증인 데이터를 파싱
+			if err != nil {
+				return false, err
+			}
+
+			z, err = t.SigHashBIP143(inputIndex, nil, witnessScript) // BIP143에 따라 서명해시를 생성
 			if err != nil {
 				return false, err
 			}
@@ -537,6 +598,20 @@ func (t Tx) VerifyInput(inputIndex int) (bool, error) {
 	} else {
 		if script.IsP2wpkhScriptPubkey(scriptPubKey.Cmds) {
 			z, err = t.SigHashBIP143(inputIndex, nil, nil)
+			if err != nil {
+				return false, err
+			}
+
+			witness = input.Witness
+		} else if script.IsP2wshScriptPubkey(scriptPubKey.Cmds) {
+			cmd := input.Witness[len(input.Witness)-1]
+			rawWitness := append(utils.IntToLittleEndian(len(cmd), 1), cmd...)
+			witnessScript, _, err := script.Parse(rawWitness)
+			if err != nil {
+				return false, err
+			}
+
+			z, err = t.SigHashBIP143(inputIndex, nil, witnessScript)
 			if err != nil {
 				return false, err
 			}

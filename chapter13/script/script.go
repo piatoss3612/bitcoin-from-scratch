@@ -1,6 +1,7 @@
 package script
 
 import (
+	"bytes"
 	"chapter13/utils"
 	"encoding/hex"
 	"errors"
@@ -33,33 +34,56 @@ func (s Script) String() string {
 }
 
 func (s Script) RawSerialize() ([]byte, error) {
-	result := []byte{}
+	buf := new(bytes.Buffer) // 버퍼 생성
 
 	for _, cmd := range s.Cmds {
 		// 스크립트 명령어가 연산자에 해당하는 경우: 해당 연산자를 1바이트 리틀엔디언으로 직렬화
 		if cmd.IsOpCode {
-			result = append(result, utils.IntToLittleEndian(cmd.Code.Int(), 1)...)
+			_, err := buf.Write(utils.IntToLittleEndian(cmd.Code.Int(), 1))
+			if err != nil {
+				return nil, err
+			}
 			continue
 		}
 
 		// 스크립트 명령어가 []byte 타입인 경우: 원소의 길이에 따라 직렬화
 		length := len(cmd.Elem)
 		if length < 75 { // 원소의 길이가 75보다 작은 경우: 해당 길이를 1바이트 리틀엔디언으로 직렬화
-			result = append(result, utils.IntToLittleEndian(length, 1)...)
+			_, err := buf.Write(utils.IntToLittleEndian(length, 1))
+			if err != nil {
+				return nil, err
+			}
 		} else if length > 75 && length < 0x100 { // 원소의 길이가 75보다 크고 0x100보다 작은 경우: OP_PUSHDATA1에 해당하므로 76을 추가하고 길이를 1바이트 리틀엔디언으로 직렬화
-			result = append(result, utils.IntToLittleEndian(76, 1)...) // OP_PUSHDATA1
-			result = append(result, utils.IntToLittleEndian(length, 1)...)
+			_, err := buf.Write(utils.IntToLittleEndian(76, 1))
+			if err != nil {
+				return nil, err
+			}
+
+			_, err = buf.Write(utils.IntToLittleEndian(length, 1))
+			if err != nil {
+				return nil, err
+			}
 		} else if length >= 0x100 && length <= 520 { // 원소의 길이가 0x100보다 크거나 같고 520보다 작거나 같은 경우: OP_PUSHDATA2에 해당하므로 77을 추가하고 길이를 2바이트 리틀엔디언으로 직렬화
-			result = append(result, utils.IntToLittleEndian(77, 1)...)
-			result = append(result, utils.IntToLittleEndian(length, 2)...)
+			_, err := buf.Write(utils.IntToLittleEndian(77, 1))
+			if err != nil {
+				return nil, err
+			}
+
+			_, err = buf.Write(utils.IntToLittleEndian(length, 2))
+			if err != nil {
+				return nil, err
+			}
 		} else { // 그 외의 경우: 에러 반환
 			return nil, errors.New("too long cmd")
 		}
 
-		result = append(result, cmd.Elem...) // 원소 추가
+		_, err := buf.Write(cmd.Elem) // 원소를 직렬화
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	return result, nil
+	return buf.Bytes(), nil
 }
 
 func (s Script) Serialize() ([]byte, error) {
@@ -70,8 +94,20 @@ func (s Script) Serialize() ([]byte, error) {
 
 	total := len(result) // 직렬화한 데이터의 전체 길이
 
+	buf := new(bytes.Buffer) // 버퍼 생성
+
 	// 직렬화한 데이터의 전체 길이를 가변 정수로 직렬화한 뒤 직렬화한 데이터를 추가하여 반환
-	return append(utils.EncodeVarint(total), result...), nil
+	_, err = buf.Write(utils.EncodeVarint(total))
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = buf.Write(result)
+	if err != nil {
+		return nil, err
+	}
+
+	return buf.Bytes(), nil
 }
 
 func (s Script) Add(other *Script) *Script {
@@ -89,25 +125,6 @@ func (s Script) Evaluate(z []byte, witness [][]byte) (bool, error) {
 	for len(cmds) > 0 {
 		cmd := cmds[0]  // 스크립트 명령어 집합의 첫 번째 원소
 		cmds = cmds[1:] // 스크립트 명령어 집합의 첫 번째 원소 제거
-
-		var res strings.Builder
-
-		for _, item := range stack {
-			switch item.(type) {
-			case int:
-				res.WriteString(fmt.Sprintf("%d ", item.(int)))
-			case []byte:
-				if len(item.([]byte)) == 0 {
-					res.WriteString("0 ")
-				} else {
-					res.WriteString(hex.EncodeToString(item.([]byte)))
-					res.WriteString(" ")
-				}
-			}
-		}
-
-		fmt.Println("stack:", res.String(), "\ncmds:", cmds, "\ncmd:", cmd)
-		fmt.Println()
 
 		// 스크립트 명령어가 연산자에 해당하는 경우
 		if cmd.IsOpCode {
@@ -164,8 +181,6 @@ func (s Script) Evaluate(z []byte, witness [][]byte) (bool, error) {
 			h160 := cmds[0].Elem
 			cmds = cmds[2:]
 
-			fmt.Println("Detect P2SH Script")
-
 			if !OpHash160(&stack) { // OP_HASH160 연산자 수행
 				return false, errors.New("failed to evaluate OP_HASH160")
 			}
@@ -193,8 +208,6 @@ func (s Script) Evaluate(z []byte, witness [][]byte) (bool, error) {
 
 		// p2wpkh 스크립트인 경우: 스택의 원소가 0과 20바이트의 데이터인지 확인
 		if len(stack) == 2 && len(stack[0].([]byte)) == 0 && len(stack[1].([]byte)) == 20 {
-			fmt.Println("Detect P2WPKH Script")
-
 			h160 := stack[1].([]byte) // 스택의 두 번째 원소를 20바이트의 데이터로 변환
 			// 스택의 원소를 모두 제거
 			stack = []any{}
@@ -204,11 +217,9 @@ func (s Script) Evaluate(z []byte, witness [][]byte) (bool, error) {
 				cmds = append(cmds, NewElem(item))
 			}
 			// 명령어 집합에 p2pkh 스크립트를 추가
-			cmds = append(cmds, NewP2PKHScript(h160).Cmds...)
+			cmds = append(cmds, NewP2pkhScript(h160).Cmds...)
 		}
 	}
-
-	fmt.Println(stack)
 
 	// 스택이 비어있는 경우: 스크립트가 유효하지 않음
 	if len(stack) == 0 {

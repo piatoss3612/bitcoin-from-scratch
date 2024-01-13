@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"chapter13/ecc"
 	"encoding/hex"
-	"fmt"
 	"math/big"
 	"testing"
 )
@@ -197,8 +196,6 @@ func TestSigHash(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	fmt.Println(tx)
-
 	sigHash, err := tx.SigHash(0)
 	if err != nil {
 		t.Fatal(err)
@@ -267,8 +264,7 @@ func TestVerifyP2sh(t *testing.T) {
 	}
 }
 
-// TODO: Fix this test
-// REASON: 이제 witness는 잘 가져오는데 서명 검증이 안됨;;
+// 통과
 func TestVerifyP2wpkh(t *testing.T) {
 	f := NewTxFetcher()
 
@@ -277,10 +273,6 @@ func TestVerifyP2wpkh(t *testing.T) {
 	tx, err := f.Fetch(txId, true, false)
 	if err != nil {
 		t.Fatal(err)
-	}
-
-	for _, input := range tx.Inputs {
-		fmt.Println("Witness:", input.Witness)
 	}
 
 	ok, err := tx.Verify()
@@ -299,6 +291,46 @@ func TestVerifyP2shP2wpkh(t *testing.T) {
 	txId := "c586389e5e4b3acb9d6c8be1c19ae8ab2795397633176f5a6442a261bbdefc3a"
 
 	tx, err := f.Fetch(txId, false, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ok, err := tx.Verify()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !ok {
+		t.Fatal("tx verification failed")
+	}
+}
+
+func TestVerifyP2wsh(t *testing.T) {
+	f := NewTxFetcher()
+
+	txId := "78457666f82c28aa37b74b506745a7c7684dc7842a52a457b09f09446721e11c"
+
+	tx, err := f.Fetch(txId, true, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ok, err := tx.Verify()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !ok {
+		t.Fatal("tx verification failed")
+	}
+}
+
+func TestVerifyP2shP2wsh(t *testing.T) {
+	f := NewTxFetcher()
+
+	txId := "954f43dbb30ad8024981c07d1f5eb6c9fd461e2cf1760dd1283f052af746fc88"
+
+	tx, err := f.Fetch(txId, true, false)
 	if err != nil {
 		t.Fatal(err)
 	}
