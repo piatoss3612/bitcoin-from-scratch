@@ -472,7 +472,7 @@ func (t *Tx) hashPrevouts() ([]byte, error) {
 	seqBuf := new(bytes.Buffer)
 
 	for _, input := range t.Inputs {
-		hexPrevTx, err := hex.DecodeString(input.PrevTx) // 문자열을 16진수로 디코딩 (이 부분이 빠져있었음)
+		hexPrevTx, err := hex.DecodeString(input.PrevTx) // 문자열을 16진수로 디코딩
 		if err != nil {
 			return nil, err
 		}
@@ -892,25 +892,6 @@ func (tf *TxFetcher) Fetch(txID string, testnet, fresh bool) (*Tx, error) {
 		if err != nil {
 			return nil, err
 		}
-
-		// 세그윗을 적용했으므로 필요 없는 코드. 책에는 나와있지 않음
-		// if rawHex[4] == 0x00 {
-		// 	rawHex = append(rawHex[:4], rawHex[6:]...)
-		// 	parsedTx, err := ParseTx(rawHex, testnet)
-		// 	if err != nil {
-		// 		return nil, err
-		// 	}
-		// 	parsedTx.Locktime = utils.LittleEndianToInt(rawHex[len(rawHex)-4:])
-
-		// 	tx = parsedTx
-		// } else {
-		// 	parsedTx, err := ParseTx(rawHex, testnet)
-		// 	if err != nil {
-		// 		return nil, err
-		// 	}
-
-		// 	tx = parsedTx
-		// }
 
 		var computed string
 

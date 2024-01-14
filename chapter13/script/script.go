@@ -226,16 +226,12 @@ func (s Script) Evaluate(z []byte, witness [][]byte) (bool, error) {
 			// 스택의 원소를 모두 제거
 			stack = []any{}
 
-			fmt.Println("h256:", hex.EncodeToString(h256))
-
 			// 증인 스크립트를 제외한 나머지 증인 데이터를 스택에 추가
 			for i := 0; i < len(witness)-1; i++ {
 				stack = append(stack, witness[i])
 			}
 
 			rawWitnessScript := witness[len(witness)-1] // witness의 마지막 원소를 증인 스크립트로 변환
-
-			fmt.Println("rawWitnessScript:", hex.EncodeToString(rawWitnessScript))
 
 			if !bytes.Equal(utils.Sha256(rawWitnessScript), h256) { // 증인 스크립트의 SHA256 해시값과 스택의 마지막 원소가 같은지 확인
 				return false, errors.New("invalid witness script")
