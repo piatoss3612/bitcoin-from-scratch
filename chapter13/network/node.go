@@ -1,6 +1,7 @@
 package network
 
 import (
+	"chapter13/utils"
 	"fmt"
 	"log"
 	"net"
@@ -104,7 +105,60 @@ func (sn *SimpleNode) Read() (*NetworkEnvelope, error) {
 	return envelope, nil
 }
 
-func (sn *SimpleNode) WaitFor(commands []Command) (<-chan *NetworkEnvelope, <-chan error) {
+func (sn *SimpleNode) ReadAll() (*NetworkEnvelope, error) {
+	buf := make([]byte, 1024)
+
+	n, err := sn.conn.Read(buf)
+	if err != nil {
+		return nil, err
+	}
+
+	if n < 4+12+4+4 { // magic + command + payload length + checksum (네트워크 메시지의 시작부분보다 작은 길이를 읽어온 경우)
+		return nil, ErrInvalidNetworkMessage
+	}
+
+	magic := buf[:4] // 가장 처음 4바이트는 네트워크 매직
+
+	if !IsNetworkMagicValid(magic) { // magic이 유효하지 않은 경우
+		fmt.Printf("Invalid network magic: %x\n", magic)
+		return nil, ErrInvalidNetworkMagic
+	}
+
+	payloadLength := utils.LittleEndianToInt(buf[16:20]) // 페이로드 길이를 읽어옴
+
+	fmt.Println("Payload Length:", payloadLength)
+
+	totalLength := 4 + 12 + 4 + payloadLength + 4 // magic + command + payload length + payload + checksum (메시지의 전체 길이)
+	readCnt := n
+
+	data := make([]byte, 0, totalLength) // data를 메시지의 전체 길이로 초기화
+	data = append(data, buf[:n]...)
+
+	fmt.Println("Total Length:", totalLength, "Read Count:", readCnt)
+
+	for readCnt < totalLength {
+		n, err := sn.conn.Read(buf) // n은 읽어온 데이터의 길이
+		if err != nil {
+			return nil, err
+		}
+
+		readCnt += n
+		data = append(data, buf[:n]...)
+
+		fmt.Println("Total Length:", totalLength, "Read Count:", readCnt)
+	}
+
+	fmt.Printf("Remaining Data: %x\n", data[totalLength:])
+
+	envelope, err := ParseNetworkEnvelope(data) // data를 파싱해서 네트워크 메시지를 생성
+	if err != nil {
+		return nil, err
+	}
+
+	return envelope, nil
+}
+
+func (sn *SimpleNode) WaitFor(commands []Command, done <-chan struct{}) (<-chan *NetworkEnvelope, <-chan error) {
 	envelopes := make(chan *NetworkEnvelope)
 	errors := make(chan error)
 	commandsMap := make(map[string]bool)
@@ -122,13 +176,13 @@ func (sn *SimpleNode) WaitFor(commands []Command) (<-chan *NetworkEnvelope, <-ch
 			select {
 			case <-sn.serverCloseChan:
 				return
+			case <-done:
+				return
 			default:
-				envelope, err := sn.Read()
+				envelope, err := sn.ReadAll()
 				if err != nil {
-					// fmt.Println("Error reading message:", err)
-					// continue
 					errors <- err
-					return
+					continue
 				}
 
 				if envelope == nil {
@@ -136,6 +190,10 @@ func (sn *SimpleNode) WaitFor(commands []Command) (<-chan *NetworkEnvelope, <-ch
 				}
 
 				if envelope.Command.Compare(PingCommand) {
+					if sn.Logging {
+						log.Printf("Recv: %s\n", envelope.Command)
+					}
+
 					err = sn.Send(NewPongMessage(envelope.Payload), sn.Network)
 					if err != nil {
 						errors <- err
@@ -164,11 +222,14 @@ func (sn *SimpleNode) HandShake() (<-chan bool, error) {
 	}
 
 	respChan := make(chan bool)
+	done := make(chan struct{})
 
-	envelopes, errors := sn.WaitFor([]Command{VersionCommand, VerAckCommand})
+	envelopes, errors := sn.WaitFor([]Command{VersionCommand, VerAckCommand}, done)
 
 	go func() {
 		defer close(respChan)
+		defer close(done)
+
 		for {
 			select {
 			case envelope := <-envelopes:

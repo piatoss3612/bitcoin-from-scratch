@@ -11,6 +11,7 @@ var (
 	ErrInvalidNetworkMagic   = fmt.Errorf("invalid network magic")
 	ErrInvalidPayload        = fmt.Errorf("invalid payload")
 	ErrInvalidNetwork        = fmt.Errorf("invalid network")
+	ErrInvalidNetworkMessage = fmt.Errorf("invalid network message")
 	ErrInvalidCommand        = fmt.Errorf("invalid command")
 	ErrInvalidStartBlockHash = fmt.Errorf("invalid start block hash")
 	ErrInvalidEndBlockHash   = fmt.Errorf("invalid end block hash")
@@ -63,12 +64,15 @@ func ParseHeadersMessage(b []byte) (*HeadersMessage, error) {
 
 		headers[i] = header
 
-		numOfTxns, _ := utils.ReadVarint(buf.Bytes())
-		if numOfTxns > 0 {
+		buf.Next(80)
+
+		numOfTxns, n := utils.ReadVarint(buf.Bytes())
+
+		if numOfTxns != 0 {
 			return nil, fmt.Errorf("block %d has %d transactions", i, numOfTxns)
 		}
 
-		buf.Next(81)
+		buf.Next(n)
 	}
 
 	return &HeadersMessage{
