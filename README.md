@@ -19,6 +19,7 @@
 11. [단순 지급 검증](#11-단순-지급-검증)
 12. [블룸 필터](#12-블룸-필터)
 13. [세그윗](#13-세그윗)
+14. [외전1 네트워크 요청 및 응답 개선](#14-외전1-네트워크-요청-및-응답-개선)
 
 ## 1. 유한체
 
@@ -111,6 +112,12 @@
 |Code|https://github.com/piatoss3612/bitcoin-from-scratch/tree/chapter13|
 |Post1|https://piatoss3612.tistory.com/96|
 |Post2|https://piatoss3612.tistory.com/97|
+
+## 14. 외전1 네트워크 요청 및 응답 개선
+
+|Content|Link|
+|---|---|
+|Post|https://piatoss3612.tistory.com/101|
 
 ## 참고
 
