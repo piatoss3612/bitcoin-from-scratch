@@ -4,8 +4,11 @@ import (
 	"bytes"
 	"chapter13/utils"
 	"fmt"
+	"io"
 	"log"
 	"net"
+	"sync"
+	"time"
 )
 
 type SimpleNode struct {
@@ -112,81 +115,91 @@ func (sn *SimpleNode) Read() (*NetworkEnvelope, error) {
 }
 
 func (sn *SimpleNode) readMessages() {
+	mu := sync.Mutex{} // data 버퍼에 동시에 접근하는 것을 방지하기 위해 사용
+
+	data := new(bytes.Buffer) // 읽어온 데이터를 저장하는 버퍼
+
+	go func() {
+		for {
+			select {
+			case <-sn.serverCloseChan:
+				data.Reset()
+				return
+			default:
+				mu.Lock()
+				if data.Len() < 24 { // 4 + 12 + 4 + 4 (magic + command + payload length + checksum) (최소한의 길이를 만족하지 못하면 메시지를 읽어올 수 없음)
+					mu.Unlock()
+					time.Sleep(100 * time.Millisecond)
+					continue
+				}
+
+				b := data.Bytes()                                  // 버퍼의 데이터를 읽어옴
+				payloadLength := utils.LittleEndianToInt(b[16:20]) // 페이로드 길이를 읽어옴
+
+				totalLength := 4 + 12 + 4 + payloadLength + 4 // magic + command + payload length + payload + checksum (메시지의 전체 길이)
+
+				if len(b) < totalLength {
+					mu.Unlock()
+					time.Sleep(100 * time.Millisecond)
+					continue
+				}
+
+				rawMsg := make([]byte, totalLength)
+				copy(rawMsg, b[:totalLength])
+
+				data.Next(totalLength) // 버퍼에서 읽어온 데이터를 제거
+
+				mu.Unlock()
+
+				envelope, _, err := ParseNetworkEnvelope(rawMsg) // rawMsg를 NetworkEnvelope로 변환
+				if err != nil {
+					if sn.Logging {
+						log.Printf("Error: %s\n", err)
+					}
+					continue
+				}
+
+				sn.envelopes <- envelope // envelopes 채널에 읽어온 데이터를 전송
+			}
+		}
+	}()
+
 	for {
+		buf := make([]byte, 1024) // 1KB 버퍼를 사용
+
 		select {
 		case <-sn.serverCloseChan:
 			return
 		default:
-			data, err := sn.ReadAll()
+			n, err := sn.conn.Read(buf) // n은 읽어온 데이터의 길이
 			if err != nil {
+				if err == io.EOF {
+					if sn.Logging {
+						log.Println("Connection closed by peer")
+					}
+					return
+				}
+
 				if sn.Logging {
 					log.Printf("Error: %s\n", err)
 				}
 				continue
 			}
 
-			buf := bytes.NewBuffer(data)
+			mu.Lock()
 
-			for buf.Len() > 0 {
-				envelope, read, err := ParseNetworkEnvelope(buf.Bytes()) // 버퍼에서 네트워크 메시지를 읽어옴
-				if err != nil {
-					if sn.Logging {
-						log.Printf("Error: %s\n", err)
-					}
-					break
-				}
-
-				buf.Next(read)           // 버퍼에서 읽어온 데이터를 제거
-				sn.envelopes <- envelope // envelopes 채널에 읽어온 데이터를 전송
-			}
-		}
-	}
-}
-
-func (sn *SimpleNode) ReadAll() ([]byte, error) {
-	buf := make([]byte, 1024)
-
-	n, err := sn.conn.Read(buf)
-	if err != nil {
-		return nil, err
-	}
-
-	if !IsNetworkEnvelope(buf[:n]) { // 네트워크 메시지인지 확인
-		return nil, ErrInvalidNetworkMessage
-	}
-
-	payloadLength := utils.LittleEndianToInt(buf[16:20]) // 페이로드 길이를 읽어옴
-
-	fmt.Println("Payload Length:", payloadLength)
-
-	totalLength := 4 + 12 + 4 + payloadLength + 4 // magic + command + payload length + payload + checksum (메시지의 전체 길이)
-	readCnt := n
-
-	data := make([]byte, 0, totalLength) // data를 메시지의 전체 길이로 초기화
-	data = append(data, buf[:n]...)
-
-	fmt.Println("Total Length:", totalLength, "Read Count:", readCnt)
-
-	for readCnt < totalLength {
-		select {
-		case <-sn.serverCloseChan:
-			return nil, net.ErrClosed
-		default:
-			n, err := sn.conn.Read(buf) // n은 읽어온 데이터의 길이
+			_, err = data.Write(buf[:n])
 			if err != nil {
-				return nil, err
+				if sn.Logging {
+					log.Printf("Error: %s\n", err)
+				}
+				mu.Unlock()
+				continue
 			}
 
-			readCnt += n
-			data = append(data, buf[:n]...)
-
-			fmt.Println("Total Length:", totalLength, "Read Count:", readCnt)
+			mu.Unlock()
 		}
 	}
-
-	fmt.Printf("Remaining Data: %x\n", data[totalLength:])
-
-	return data, nil
 }
 
 func (sn *SimpleNode) WaitFor(commands []Command, done <-chan struct{}) (<-chan *NetworkEnvelope, <-chan error) {
@@ -263,18 +276,10 @@ func (sn *SimpleNode) HandShake() (<-chan bool, error) {
 				}
 
 				if envelope.Command.Compare(VerAckCommand) {
-					if sn.Logging {
-						log.Printf("Recv: %s\n", envelope.Command)
-					}
-
 					continue
 				}
 
 				if envelope.Command.Compare(VersionCommand) {
-					if sn.Logging {
-						log.Printf("Recv: %s\n", envelope.Command)
-					}
-
 					ack := NewVerAckMessage()
 
 					err = sn.Send(ack, sn.Network)

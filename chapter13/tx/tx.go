@@ -3,6 +3,7 @@ package tx
 import (
 	"bytes"
 	"chapter13/ecc"
+	"chapter13/network"
 	"chapter13/script"
 	"chapter13/utils"
 	"encoding/hex"
@@ -63,6 +64,10 @@ func (t Tx) Hash() ([]byte, error) {
 	}
 
 	return utils.ReverseBytes(utils.Hash256(s)), nil
+}
+
+func (t Tx) Command() network.Command {
+	return network.TxCommand
 }
 
 // 트랜잭션을 직렬화한 결과를 반환하는 함수

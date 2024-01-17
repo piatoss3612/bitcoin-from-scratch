@@ -40,12 +40,12 @@ func (b *BloomFilter) Filterload(flag ...bool) *network.GenericMessage {
 
 	if len(flag) > 0 {
 		if flag[0] {
-			payload = append(payload, 0x01)
+			payload = append(payload, utils.IntToLittleEndian(1, 1)...)
 		} else {
-			payload = append(payload, 0x00)
+			payload = append(payload, utils.IntToLittleEndian(0, 1)...)
 		}
 	} else {
-		payload = append(payload, 0x01)
+		payload = append(payload, utils.IntToLittleEndian(1, 1)...)
 	}
 
 	return network.NewGenericMessage(network.FilterloadCommand, payload)

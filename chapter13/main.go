@@ -2,7 +2,10 @@ package main
 
 import (
 	"chapter13/block"
+	"chapter13/bloomfilter"
+	"chapter13/merkleblock"
 	"chapter13/network"
+	"chapter13/tx"
 	"chapter13/utils"
 	"encoding/hex"
 	"fmt"
@@ -13,12 +16,8 @@ import (
 )
 
 func main() {
-	VerifyBlockHeaders()
-
-	// rawCmd, _ := hex.DecodeString("66656566696c746572")
-	// cmd := network.ParseCommand(rawCmd)
-
-	// fmt.Println(cmd)
+	// VerifyBlockHeaders()
+	CheckIfBloomfilterWorks()
 }
 
 func VerifyBlockHeaders() {
@@ -134,4 +133,162 @@ func VerifyBlockHeaders() {
 	<-done
 
 	fmt.Println("Done")
+}
+
+func CheckIfBloomfilterWorks() {
+	startBlock, _ := hex.DecodeString("00000000000538d5c2246336644f9a4956551afb44ba47278759ec55ea912e19")
+
+	address := "mwJn1YPMq7y5F8J3LkC5Hxg9PHyZ5K4cFv"
+	h160, _ := utils.DecodeBase58(address)
+
+	node, err := network.NewSimpleNode("84.250.85.135", 18333, network.TestNet, false) // testnet
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer node.Close()
+
+	log.Println("Connected to", node.Host, "on port", node.Port)
+
+	bf := bloomfilter.New(30, 5, 90210)
+	bf.Add(h160)
+
+	resp, err := node.HandShake()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if ok := <-resp; !ok {
+		log.Fatal("Handshake failed")
+	}
+
+	time.Sleep(1 * time.Second)
+
+	log.Println("Sending filterload message")
+
+	if err := node.Send(bf.Filterload()); err != nil {
+		log.Fatal(err)
+	}
+
+	log.Println("Sending getheaders message")
+
+	getheaders := network.DefaultGetHeadersMessage()
+	getheaders.StartBlock = startBlock
+
+	if err := node.Send(getheaders); err != nil {
+		log.Fatal(err)
+	}
+
+	done := make(chan struct{})
+
+	envelopes, errs := node.WaitFor([]network.Command{network.HeadersCommand}, done)
+	getdata := network.NewGetDataMessage()
+
+	go func() {
+		defer close(done)
+
+		for {
+			select {
+			case err := <-errs:
+				if err == io.EOF {
+					log.Println("Connection closed")
+					return
+				}
+				log.Fatalf("Error receiving message: %s", err)
+			case headersEnvelope := <-envelopes:
+				if headersEnvelope == nil {
+					continue
+				}
+
+				headers, err := network.ParseHeadersMessage(headersEnvelope.Payload)
+				if err != nil {
+					log.Fatal(err)
+				}
+
+				for _, header := range headers.Headers {
+					ok, err := header.CheckProofOfWork()
+					if err != nil {
+						log.Fatal(err)
+					}
+
+					if !ok {
+						log.Fatal("Block does not satisfy proof of work")
+					}
+
+					hash, err := header.Hash()
+					if err != nil {
+						log.Fatal(err)
+					}
+
+					getdata.AddData(network.FiltedBlockDataItem, hash)
+				}
+
+				return
+			}
+		}
+	}()
+
+	<-done
+
+	time.Sleep(1 * time.Second)
+
+	log.Println("Sending getdata message")
+
+	if err := node.Send(getdata); err != nil {
+		log.Fatal(err)
+	}
+
+	done = make(chan struct{})
+
+	envelopes, errs = node.WaitFor([]network.Command{network.MerkleBlockCommand, network.TxCommand}, done)
+
+	go func() {
+		defer close(done)
+
+		for {
+			select {
+			case err := <-errs:
+				if err == io.EOF {
+					log.Println("Connection closed")
+					return
+				}
+				log.Fatalf("Error receiving message: %s", err)
+			case envelope := <-envelopes:
+				switch envelope.Command.String() {
+				case network.MerkleBlockCommand.String():
+					mb := merkleblock.MerkleBlock{}
+					err := mb.Parse(envelope.Payload)
+					if err != nil {
+						log.Fatalf("Error parsing merkle block: %s", err)
+					}
+
+					ok, err := mb.IsValid()
+					if err != nil {
+						log.Fatalf("Error validating merkle block: %s", err)
+					}
+
+					if !ok {
+						log.Fatal("Merkle block is not valid")
+					}
+				case network.TxCommand.String():
+					tx, err := tx.ParseTx(envelope.Payload)
+					if err != nil {
+						log.Fatalf("Error parsing tx: %s", err)
+					}
+
+					for i, out := range tx.Outputs {
+						if strings.EqualFold(out.ScriptPubKey.Address(true), address) {
+							id, _ := tx.ID()
+							fmt.Printf("Found matching tx %s at output index %d\n", id, i)
+
+							return
+						}
+					}
+				}
+			}
+		}
+	}()
+
+	<-done
+
+	log.Println("Done")
 }

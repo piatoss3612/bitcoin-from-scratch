@@ -281,3 +281,17 @@ func (s Script) Evaluate(z []byte, witness [][]byte) (bool, error) {
 
 	return true, nil
 }
+
+func (s Script) Address(testnet bool) string {
+	if IsP2pkhScriptPubkey(s.Cmds) {
+		h160 := s.Cmds[2].Elem
+		return utils.H160ToP2pkhAddress(h160, testnet)
+	}
+
+	if IsP2shScriptPubkey(s.Cmds) {
+		h160 := s.Cmds[1].Elem
+		return utils.H160ToP2shAddress(h160, testnet)
+	}
+
+	return ""
+}

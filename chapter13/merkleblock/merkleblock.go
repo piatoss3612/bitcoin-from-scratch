@@ -2,6 +2,7 @@ package merkleblock
 
 import (
 	"bytes"
+	"chapter13/network"
 	"chapter13/utils"
 )
 
@@ -15,6 +16,14 @@ type MerkleBlock struct {
 	TotalTx       int
 	Hashes        [][]byte
 	Flags         []byte
+}
+
+func (m MerkleBlock) Command() network.Command {
+	return network.MerkleBlockCommand
+}
+
+func (m MerkleBlock) Serialize() ([]byte, error) {
+	return []byte{}, nil
 }
 
 func (m *MerkleBlock) Parse(b []byte) error {
