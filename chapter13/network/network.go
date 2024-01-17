@@ -55,21 +55,23 @@ func (nt NetworkType) Magic() []byte {
 	}
 }
 
-func IsNetworkMagicValid(magic []byte) bool {
+func IsNetworkMagic(magic []byte) bool {
 	return bytes.Equal(magic, NetworkMagic) || bytes.Equal(magic, TestNetworkMagic) || bytes.Equal(magic, SimNetMagic) || bytes.Equal(magic, RegTestMagic)
 }
 
 type Command []byte
 
 var (
-	VersionCommand    Command = []byte("version")
-	VerAckCommand     Command = []byte("verack")
-	PingCommand       Command = []byte("ping")
-	PongCommand       Command = []byte("pong")
-	GetHeadersCommand Command = []byte("getheaders")
-	HeadersCommand    Command = []byte("headers")
-	FilterloadCommand Command = []byte("filterload")
-	GetDataCommand    Command = []byte("getdata")
+	VersionCommand     Command = []byte("version")
+	VerAckCommand      Command = []byte("verack")
+	PingCommand        Command = []byte("ping")
+	PongCommand        Command = []byte("pong")
+	GetHeadersCommand  Command = []byte("getheaders")
+	HeadersCommand     Command = []byte("headers")
+	FilterloadCommand  Command = []byte("filterload")
+	GetDataCommand     Command = []byte("getdata")
+	MerkleBlockCommand Command = []byte("merkleblock")
+	TxCommand          Command = []byte("tx")
 )
 
 func (c Command) String() string {

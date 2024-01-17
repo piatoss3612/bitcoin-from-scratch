@@ -17,31 +17,36 @@ var (
 	ErrInvalidEndBlockHash   = fmt.Errorf("invalid end block hash")
 )
 
-func ParseNetworkEnvelope(b []byte) (*NetworkEnvelope, error) {
+func ParseNetworkEnvelope(b []byte) (*NetworkEnvelope, int, error) {
 	buf := bytes.NewBuffer(b)
+	read := 0
 
 	magic := buf.Next(4)
+	read += 4
 
-	if !IsNetworkMagicValid(magic) {
-		return nil, ErrInvalidNetworkMagic
+	if !IsNetworkMagic(magic) {
+		return nil, 0, ErrInvalidNetworkMagic
 	}
 
 	command := ParseCommand(buf.Next(12))
+	read += 12
 
 	payloadLength := utils.LittleEndianToInt(buf.Next(4))
 	payloadChecksum := buf.Next(4)
+	read += 8
 
 	payload := buf.Next(payloadLength)
+	read += payloadLength
 
 	if !bytes.Equal(payloadChecksum, utils.Hash256(payload)[:4]) {
-		return nil, ErrInvalidPayload
+		return nil, 0, ErrInvalidPayload
 	}
 
 	return &NetworkEnvelope{
 		Magic:   magic,
 		Command: command,
 		Payload: payload,
-	}, nil
+	}, read, nil
 }
 
 func ParseCommand(b []byte) Command {

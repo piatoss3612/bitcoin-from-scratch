@@ -8,7 +8,7 @@ import (
 
 func TestParseEnvelope(t *testing.T) {
 	rawMsg, _ := hex.DecodeString("f9beb4d976657261636b000000000000000000005df6e0e2")
-	envelope, err := ParseNetworkEnvelope(rawMsg)
+	envelope, _, err := ParseNetworkEnvelope(rawMsg)
 	if err != nil {
 		t.Fatalf("error parsing envelope: %v", err)
 	}
@@ -22,7 +22,7 @@ func TestParseEnvelope(t *testing.T) {
 	}
 
 	rawMsg, _ = hex.DecodeString("f9beb4d976657273696f6e0000000000650000005f1a69d2721101000100000000000000bc8f5e5400000000010000000000000000000000000000000000ffffc61b6409208d010000000000000000000000000000000000ffffcb0071c0208d128035cbc97953f80f2f5361746f7368693a302e392e332fcf05050001")
-	envelope, err = ParseNetworkEnvelope(rawMsg)
+	envelope, _, err = ParseNetworkEnvelope(rawMsg)
 	if err != nil {
 		t.Fatalf("error parsing envelope: %v", err)
 	}
@@ -38,7 +38,7 @@ func TestParseEnvelope(t *testing.T) {
 
 func TestSerializeEnvelope(t *testing.T) {
 	rawMsg, _ := hex.DecodeString("f9beb4d976657261636b000000000000000000005df6e0e2")
-	envelope, _ := ParseNetworkEnvelope(rawMsg)
+	envelope, _, _ := ParseNetworkEnvelope(rawMsg)
 	s, err := envelope.Serialize()
 	if err != nil {
 		t.Fatalf("error serializing envelope: %v", err)
@@ -49,7 +49,7 @@ func TestSerializeEnvelope(t *testing.T) {
 	}
 
 	rawMsg, _ = hex.DecodeString("f9beb4d976657273696f6e0000000000650000005f1a69d2721101000100000000000000bc8f5e5400000000010000000000000000000000000000000000ffffc61b6409208d010000000000000000000000000000000000ffffcb0071c0208d128035cbc97953f80f2f5361746f7368693a302e392e332fcf05050001")
-	envelope, _ = ParseNetworkEnvelope(rawMsg)
+	envelope, _, _ = ParseNetworkEnvelope(rawMsg)
 	s, err = envelope.Serialize()
 	if err != nil {
 		t.Fatalf("error serializing envelope: %v", err)

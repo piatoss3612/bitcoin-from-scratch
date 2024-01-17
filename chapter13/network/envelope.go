@@ -31,6 +31,16 @@ func NewEnvelope(command, payload []byte, network ...NetworkType) (*NetworkEnvel
 	return ne, nil
 }
 
+func IsNetworkEnvelope(buf []byte) bool {
+	if len(buf) < 4+12+4+4 {
+		return false
+	}
+
+	magic := buf[:4]
+
+	return IsNetworkMagic(magic)
+}
+
 func (ne NetworkEnvelope) String() string {
 	return fmt.Sprintf("%s %s", ne.Command, hex.EncodeToString(ne.Payload))
 }

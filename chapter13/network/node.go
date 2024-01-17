@@ -1,6 +1,7 @@
 package network
 
 import (
+	"bytes"
 	"chapter13/utils"
 	"fmt"
 	"log"
@@ -14,6 +15,7 @@ type SimpleNode struct {
 	Logging bool
 
 	conn            net.Conn
+	envelopes       chan *NetworkEnvelope
 	serverCloseChan chan struct{}
 }
 
@@ -44,14 +46,18 @@ func NewSimpleNode(host string, port int, network NetworkType, logging bool) (*S
 		Network:         network,
 		Logging:         logging,
 		conn:            conn,
+		envelopes:       make(chan *NetworkEnvelope, 1000),
 		serverCloseChan: make(chan struct{}),
 	}
+
+	go node.readMessages()
 
 	return node, nil
 }
 
 func (sn *SimpleNode) Close() error {
 	close(sn.serverCloseChan)
+	close(sn.envelopes)
 
 	return sn.conn.Close()
 }
@@ -97,7 +103,7 @@ func (sn *SimpleNode) Read() (*NetworkEnvelope, error) {
 		return nil, err
 	}
 
-	envelope, err := ParseNetworkEnvelope(buf[:n])
+	envelope, _, err := ParseNetworkEnvelope(buf[:n])
 	if err != nil {
 		return nil, err
 	}
@@ -105,7 +111,39 @@ func (sn *SimpleNode) Read() (*NetworkEnvelope, error) {
 	return envelope, nil
 }
 
-func (sn *SimpleNode) ReadAll() (*NetworkEnvelope, error) {
+func (sn *SimpleNode) readMessages() {
+	for {
+		select {
+		case <-sn.serverCloseChan:
+			return
+		default:
+			data, err := sn.ReadAll()
+			if err != nil {
+				if sn.Logging {
+					log.Printf("Error: %s\n", err)
+				}
+				continue
+			}
+
+			buf := bytes.NewBuffer(data)
+
+			for buf.Len() > 0 {
+				envelope, read, err := ParseNetworkEnvelope(buf.Bytes()) // 버퍼에서 네트워크 메시지를 읽어옴
+				if err != nil {
+					if sn.Logging {
+						log.Printf("Error: %s\n", err)
+					}
+					break
+				}
+
+				buf.Next(read)           // 버퍼에서 읽어온 데이터를 제거
+				sn.envelopes <- envelope // envelopes 채널에 읽어온 데이터를 전송
+			}
+		}
+	}
+}
+
+func (sn *SimpleNode) ReadAll() ([]byte, error) {
 	buf := make([]byte, 1024)
 
 	n, err := sn.conn.Read(buf)
@@ -113,15 +151,8 @@ func (sn *SimpleNode) ReadAll() (*NetworkEnvelope, error) {
 		return nil, err
 	}
 
-	if n < 4+12+4+4 { // magic + command + payload length + checksum (네트워크 메시지의 시작부분보다 작은 길이를 읽어온 경우)
+	if !IsNetworkEnvelope(buf[:n]) { // 네트워크 메시지인지 확인
 		return nil, ErrInvalidNetworkMessage
-	}
-
-	magic := buf[:4] // 가장 처음 4바이트는 네트워크 매직
-
-	if !IsNetworkMagicValid(magic) { // magic이 유효하지 않은 경우
-		fmt.Printf("Invalid network magic: %x\n", magic)
-		return nil, ErrInvalidNetworkMagic
 	}
 
 	payloadLength := utils.LittleEndianToInt(buf[16:20]) // 페이로드 길이를 읽어옴
@@ -137,25 +168,25 @@ func (sn *SimpleNode) ReadAll() (*NetworkEnvelope, error) {
 	fmt.Println("Total Length:", totalLength, "Read Count:", readCnt)
 
 	for readCnt < totalLength {
-		n, err := sn.conn.Read(buf) // n은 읽어온 데이터의 길이
-		if err != nil {
-			return nil, err
+		select {
+		case <-sn.serverCloseChan:
+			return nil, net.ErrClosed
+		default:
+			n, err := sn.conn.Read(buf) // n은 읽어온 데이터의 길이
+			if err != nil {
+				return nil, err
+			}
+
+			readCnt += n
+			data = append(data, buf[:n]...)
+
+			fmt.Println("Total Length:", totalLength, "Read Count:", readCnt)
 		}
-
-		readCnt += n
-		data = append(data, buf[:n]...)
-
-		fmt.Println("Total Length:", totalLength, "Read Count:", readCnt)
 	}
 
 	fmt.Printf("Remaining Data: %x\n", data[totalLength:])
 
-	envelope, err := ParseNetworkEnvelope(data) // data를 파싱해서 네트워크 메시지를 생성
-	if err != nil {
-		return nil, err
-	}
-
-	return envelope, nil
+	return data, nil
 }
 
 func (sn *SimpleNode) WaitFor(commands []Command, done <-chan struct{}) (<-chan *NetworkEnvelope, <-chan error) {
@@ -178,32 +209,26 @@ func (sn *SimpleNode) WaitFor(commands []Command, done <-chan struct{}) (<-chan 
 				return
 			case <-done:
 				return
-			default:
-				envelope, err := sn.ReadAll()
-				if err != nil {
-					errors <- err
-					continue
-				}
-
+			case envelope := <-sn.envelopes:
 				if envelope == nil {
 					continue
 				}
 
-				if envelope.Command.Compare(PingCommand) {
-					if sn.Logging {
-						log.Printf("Recv: %s\n", envelope.Command)
-					}
+				if sn.Logging {
+					log.Printf("Recv: %s\n", envelope.Command)
+				}
 
-					err = sn.Send(NewPongMessage(envelope.Payload), sn.Network)
+				if envelope.Command.Compare(PingCommand) {
+					err := sn.Send(NewPongMessage(envelope.Payload), sn.Network)
 					if err != nil {
 						errors <- err
 						continue
 					}
 
-					if sn.Logging {
-						log.Printf("Send: %s\n", PongCommand)
-					}
-				} else if _, ok := commandsMap[envelope.Command.String()]; ok {
+					continue
+				}
+
+				if _, ok := commandsMap[envelope.Command.String()]; ok {
 					envelopes <- envelope
 				}
 			}
